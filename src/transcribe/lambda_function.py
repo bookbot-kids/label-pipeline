@@ -219,7 +219,9 @@ def create_task(file_uri, job):
             for item in results["items"]
             if item["type"] == "pronunciation"
         ) / sum(1.0 for item in results["items"] if item["type"] == "pronunciation")
-
+    except ZeroDivisionError as div_err:
+        print(f"Error: {div_err}. Setting confidence to 0.0")
+        confidence = 0.0
     except Exception as exc:
         print(f"Error: {exc}")
         return (
@@ -241,28 +243,29 @@ def create_task(file_uri, job):
                 ],
             },
         )
-    else:
-        return (
-            TranscribeStatus.SUCCESS,
-            {
-                "data": {"audio": file_uri},
-                "predictions": [
-                    {
-                        "model_version": "amazon_transcribe",
-                        "result": [
-                            {
-                                "from_name": "transcription",
-                                "to_name": "audio",
-                                "type": "textarea",
-                                "value": {"text": transcriptions},
-                            },
-                            *segment(results),
-                        ],
-                        "score": confidence,
-                    }
-                ],
-            },
-        )
+
+    # if no exceptions occur, or if confidence is set to 0.0 after division-by-zero error
+    return (
+        TranscribeStatus.SUCCESS,
+        {
+            "data": {"audio": file_uri},
+            "predictions": [
+                {
+                    "model_version": "amazon_transcribe",
+                    "result": [
+                        {
+                            "from_name": "transcription",
+                            "to_name": "audio",
+                            "type": "textarea",
+                            "value": {"text": transcriptions},
+                        },
+                        *segment(results),
+                    ],
+                    "score": confidence,
+                }
+            ],
+        },
+    )
 
 
 def transcribe_file(
@@ -302,21 +305,19 @@ def transcribe_file(
         LanguageCode=language_code,
     )
 
-    max_tries = 2
-    while max_tries > 0:
-        max_tries -= 1
+    # might be risky, but this relies on Lambda's 3 mins timeout
+    while True:
         job = transcribe_client.get_transcription_job(TranscriptionJobName=job_name)
         job_status = job["TranscriptionJob"]["TranscriptionJobStatus"]
         if job_status in ["COMPLETED", "FAILED"]:
             print(f"Job {job_name} is {job_status}.")
-            if job_status == "COMPLETED":
-                # if transcription job completes, create Label Studio JSON-formatted task
-                return create_task(file_uri, job)
-        else:
+            # if transcription job completes or fails, create Label Studio JSON-formatted task accordingly
+            return create_task(file_uri, job)
+        elif job_status == "IN_PROGRESS":
+            # otherwise, if the transcription is still in progress, keep it running
             print(f"Waiting for {job_name}. Current status is {job_status}.")
-        time.sleep(10)
-    # if transcription job fails, create an empty Label Studio JSON-formatted task
-    return create_task(file_uri, job)
+            # give a 10 second timeout
+            time.sleep(20)
 
 
 def lambda_handler(event, context):
@@ -360,6 +361,7 @@ def main(audio_file):
     """
     job_name = os.path.splitext(os.path.basename(audio_file))[0]
     folder_name = os.path.basename(os.path.dirname(audio_file))
+    language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
 
     status, task = transcribe_file(
@@ -390,8 +392,8 @@ def main(audio_file):
         )  # incorrect transcriptions
         or status == TranscribeStatus.FAILED  # failed to Transcribe
     ):
-        # save Label Studio-ready annotations to `label-studio/raw` for further inspection
-        save_path = f"label-studio/raw/{folder_name}/{job_name}.json"
+        # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
+        save_path = f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
     else:
         # otherwise, save annotations to `label-studio/verified` for audio splitting
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
