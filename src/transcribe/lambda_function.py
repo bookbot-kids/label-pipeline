@@ -7,7 +7,7 @@ import json
 from enum import Enum, auto
 import re, string
 from urllib.parse import unquote_plus
-from config import LANGUAGE_CODES, BUCKET, REGION
+from config import LANGUAGE_CODES, BUCKET, REGION, HOST
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -386,6 +386,9 @@ def main(audio_file):
         else:
             ground_truth = text_file["Body"].read().decode("utf-8")
 
+    # add ground truth to Label Studio JSON-annotated task (for reference)
+    task["data"]["text"] = ground_truth
+
     if (
         not compare_transcriptions(
             ground_truth, transcribed_text
@@ -401,3 +404,10 @@ def main(audio_file):
     # export JSON to respective folders in S3
     s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)
     print(f"File {save_path} successfully created and saved.")
+
+    # # send sync signal to Label Studio project
+    # api_key = os.environ["LABEL_STUDIO_API_KEY"]
+    # # api_key = "0b3c5e22258b61566852f5935c6d40304b02d96a"
+    # headers = {"Authorization": f"Token {api_key}"}
+    # task = requests.get(f"{HOST}/api/storages/s3", headers=headers).json()
+    # print(task)
