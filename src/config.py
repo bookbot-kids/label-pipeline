@@ -3,10 +3,13 @@
 ################
 
 # Label Studio IP host
-HOST = "http://13.213.48.237:8080"
+HOST = "http://18.138.249.123:8080"
 
 # Administrator email for Label Studio
-ADMIN_EMAIL = "admin@admin.com"
+ADMIN_EMAIL = {"en": "adrian@bookbotkids.com", "id": "wilsonwong961@gmail.com"}
+
+# AWS S3 Storage ID for Label Studio
+STORAGE_ID = {"en": 3, "id": 2}
 
 #######
 # AWS #

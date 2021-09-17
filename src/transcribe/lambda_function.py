@@ -7,7 +7,7 @@ import json
 from enum import Enum, auto
 import re, string
 from urllib.parse import unquote_plus
-from config import LANGUAGE_CODES, BUCKET, REGION, HOST
+from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -268,6 +268,35 @@ def create_task(file_uri, job):
     )
 
 
+def sync_label_studio_s3(language):
+    """Syncs AWS S3 storage in Label Studio based on the project's `language`.
+
+    Parameters
+    ----------
+    language : str
+        Language of the labeling project, e.g. `en` or `id`.
+    """
+    # send sync signal to Label Studio project
+    api_key = os.environ["LABEL_STUDIO_API_KEY"]
+    headers = {"Authorization": f"Token {api_key}"}
+
+    # hard code storage id since get_all_storages_s3 API is broken
+    storage_id = STORAGE_ID[language]
+    storage = requests.get(
+        f"{HOST}/api/storages/s3/{storage_id}", headers=headers
+    ).json()
+
+    if storage:
+        print(f"Successfully fetched storage {storage_id}. {storage}")
+
+    sync = requests.post(
+        f"{HOST}/api/storages/s3/{storage_id}/sync", headers=headers, data=storage
+    ).json()
+
+    if sync:
+        print(f"Successfully synced storage {storage_id}. {sync}")
+
+
 def transcribe_file(
     job_name, file_uri, transcribe_client, media_format="mp4", language_code="en-US"
 ):
@@ -404,10 +433,3 @@ def main(audio_file):
     # export JSON to respective folders in S3
     s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)
     print(f"File {save_path} successfully created and saved.")
-
-    # # send sync signal to Label Studio project
-    # api_key = os.environ["LABEL_STUDIO_API_KEY"]
-    # # api_key = "0b3c5e22258b61566852f5935c6d40304b02d96a"
-    # headers = {"Authorization": f"Token {api_key}"}
-    # task = requests.get(f"{HOST}/api/storages/s3", headers=headers).json()
-    # print(task)

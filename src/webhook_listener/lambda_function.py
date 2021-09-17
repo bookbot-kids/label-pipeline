@@ -45,13 +45,14 @@ def lambda_handler(event, context):
             annotations = task["annotations"]
 
             for annotation in annotations:
-                # if audio has been verified by admin
-                if ADMIN_EMAIL in annotation["created_username"]:
-                    audio_url = task["data"]["audio"]
-                    audio_file = urljoin(audio_url, urlparse(audio_url).path)
-                    job_name = os.path.splitext(os.path.basename(audio_file))[0]
-                    folder_name = os.path.basename(os.path.dirname(audio_file))
+                audio_url = task["data"]["audio"]
+                audio_file = urljoin(audio_url, urlparse(audio_url).path)
+                job_name = os.path.splitext(os.path.basename(audio_file))[0]
+                folder_name = os.path.basename(os.path.dirname(audio_file))
+                language = folder_name.split("-")[0]
 
+                # if audio has been verified by admin of specific language
+                if ADMIN_EMAIL[language] in annotation["created_username"]:
                     # export JSON to `label-studio/verified`
                     save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
                     s3_client.put_object(
@@ -71,7 +72,4 @@ def lambda_handler(event, context):
                 "statusCode": 200,
                 "body": json.dumps(unverified_message),
             }
-    # elif action in ["TASK_DELETED", "TASKS_DELETED"]:
-    #     # task_id = response["id"]
-    #     print(response)
 

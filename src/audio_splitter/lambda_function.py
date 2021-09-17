@@ -82,10 +82,12 @@ def split_export_audio(annotations, audio_file, bucket, key_prefix):
     key_prefix : str
         AWS S3 key prefix path to save file.
     """
+    language = os.path.basename(os.path.dirname(audio_file)).split("-")[0]
+
     admin_annotation = [
         annotation
         for annotation in annotations
-        if ADMIN_EMAIL in annotation["created_username"]
+        if ADMIN_EMAIL[language] in annotation["created_username"]
     ]
 
     if admin_annotation:
