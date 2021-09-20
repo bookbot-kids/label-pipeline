@@ -3,7 +3,7 @@
 ################
 
 # Label Studio IP host
-HOST = "http://18.138.249.123:8080"
+HOST = "http://18.141.137.45:8080"
 
 # Administrator email for Label Studio
 ADMIN_EMAIL = {"en": "adrian@bookbotkids.com", "id": "wilsonwong961@gmail.com"}
