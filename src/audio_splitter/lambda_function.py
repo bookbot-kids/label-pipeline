@@ -70,13 +70,15 @@ def trim_audio(input_path, start, end):
     return (stdout, stderr)
 
 
-def split_export_audio(annotations, audio_file, bucket, key_prefix):
+def split_export_audio(annotations, annotation_key, audio_file, bucket, key_prefix):
     """Splits `audio_file` based on JSON-formatted `annotations`, saves exports to `key_prefix`.
 
     Parameters
     ----------
     annotations : List[Dict[str, Any]]
         JSON-formatted annotations exported by Label Studio.
+    annotation_key: str
+        Key of annotation dictionary containing timestamps and transcriptions.
     audio_file : str
         Pre-signed URL pointing to the audio file of the JSON annotation.
     key_prefix : str
@@ -84,15 +86,22 @@ def split_export_audio(annotations, audio_file, bucket, key_prefix):
     """
     language = os.path.basename(os.path.dirname(audio_file)).split("-")[0]
 
-    admin_annotation = [
-        annotation
-        for annotation in annotations
-        if ADMIN_EMAIL[language] in annotation["created_username"]
-    ]
+    anno = None
 
-    if admin_annotation:
+    if annotation_key == "annotations":
+        # only get annotations created by admin
+        anno = [
+            annotation
+            for annotation in annotations
+            if ADMIN_EMAIL[language] in annotation["created_username"]
+        ]
+    elif annotation_key == "predictions":
+        # otherwise, take correctly predicted transcriptions
+        anno = [annotation for annotation in annotations]
+
+    if anno:
         try:
-            result = admin_annotation[0]["result"]
+            result = anno[0]["result"]
         except Exception as exc:
             print(exc)
 
@@ -165,7 +174,9 @@ def lambda_handler(event, context):
     try:
         response = s3_client.get_object(Bucket=bucket, Key=key)
         task = json.loads(response["Body"].read().decode("utf-8"))
-        annotations = task["annotations"]
+        # "predictions" if immediately correct after Transcribe, else take human "annotations"
+        annotation_key = "annotations" if "annotations" in task else "predictions"
+        annotations = task[annotation_key]
     except Exception as e:
         print(e)
         raise e
@@ -173,7 +184,9 @@ def lambda_handler(event, context):
         # get audio file from S3
         audio_file = get_audio_file(bucket, key)
         # splits audio + transcription based on annotation, exports to S3
-        split_export_audio(annotations, audio_file, bucket, f"{folder_name}/{job_name}")
+        split_export_audio(
+            annotations, annotation_key, audio_file, bucket, f"{folder_name}/{job_name}"
+        )
 
         # moves original audio and text to `archive`
         for ext in ["aac", "txt"]:
