@@ -86,6 +86,29 @@ def get_job(client, job_name):
         return None
 
 
+def move_file(bucket, file, source, destination):
+    """Move `file` in `bucket` from `source` to `destination` folder
+
+    Parameters
+    ----------
+    bucket : str
+        S3 bucket name.
+    file : str
+        Name of file to be moved (without full-path).
+    source : str
+        Source folder in S3 bucket.
+    destination : str
+        Destination folder in S3 bucket.
+    """
+    s3_resource = boto3.resource("s3")
+
+    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
+        CopySource=f"{bucket}/{source}/{file}"
+    )
+    s3_resource.Object(bucket, f"{source}/{file}").delete()
+    print(f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
+
+
 def init_label_studio_annotation():
     """Initializes a pair of dictionaries in Label Studio annotation format.
 
@@ -418,12 +441,18 @@ def main(audio_file):
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
 
-    if (
-        not compare_transcriptions(
-            ground_truth, transcribed_text
-        )  # incorrect transcriptions
-        or status == TranscribeStatus.FAILED  # failed to Transcribe
-    ):
+    if status == TranscribeStatus.FAILED:
+        # archive Transcribe-failed annotations
+        save_path = f"archive/{folder_name}/{job_name}.json"
+        # move audios to `archive`
+        for ext in ["aac", "txt"]:
+            move_file(
+                BUCKET,
+                f"{job_name}.{ext}",
+                f"dropbox/{folder_name}",
+                f"archive/{folder_name}",
+            )
+    elif not compare_transcriptions(ground_truth, transcribed_text):
         # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
         save_path = f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
     else:
