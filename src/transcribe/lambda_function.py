@@ -441,7 +441,7 @@ def main(audio_file):
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
 
-    if status == TranscribeStatus.FAILED:
+    if status == TranscribeStatus.FAILED or transcribed_text == "":
         # archive Transcribe-failed annotations
         save_path = f"archive/{folder_name}/{job_name}.json"
         # move audios to `archive`
