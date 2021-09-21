@@ -132,6 +132,13 @@ def init_label_studio_annotation():
             "to_name": "audio",
             "type": "labels",
         },
+        {
+            "value": {"start": -1, "end": -1, "text": []},
+            "id": "",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
     ]
 
 
@@ -159,24 +166,27 @@ def segment(results):
             output = output + init_label_studio_annotation()
             new_sentence = False
 
-        idx = sentence_counter * 2
+        idx = sentence_counter * 3
 
         text_dict = output[idx]
         label_dict = output[idx + 1]
+        ground_truth_dict = output[idx + 2]
 
         sentence_id = f"sentence_{sentence_counter}"
         text_dict["id"] = sentence_id
         label_dict["id"] = sentence_id
+        ground_truth_dict["id"] = sentence_id
 
         text_values = text_dict["value"]
         label_values = label_dict["value"]
+        ground_truth_values = ground_truth_dict["value"]
 
         token = item["alternatives"][0]["content"]
 
         if item["type"] == "pronunciation":
             # start time is at the first word of the sentence
             # end time is at the last word of the sentence
-            for d in [text_values, label_values]:
+            for d in [text_values, label_values, ground_truth_values]:
                 if d["start"] == -1:
                     d["start"] = float(item["start_time"])
                 d["end"] = float(item["end_time"])
@@ -440,6 +450,10 @@ def main(audio_file):
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
+    # add ground truth to all region-wise ground truths (for convenience of labeler)
+    for d in task["predictions"][0]["result"]:
+        if d["from_name"] == "region-ground-truth":
+            d["value"]["text"] = [ground_truth]
 
     if status == TranscribeStatus.FAILED or transcribed_text == "":
         # archive Transcribe-failed annotations
