@@ -105,11 +105,13 @@ def split_export_audio(annotations, annotation_key, audio_file, bucket, key_pref
         except Exception as exc:
             print(exc)
 
-        # only get annotations with start and end times, ignore labels
+        # only get annotations with start and end times, ignore labels and region-wise GTs
         segments = [
             d
             for d in result
-            if "start" in d["value"].keys() and "labels" not in d["value"].keys()
+            if "start" in d["value"].keys()
+            and "labels" not in d["value"].keys()
+            and d["from_name"] != "region-ground-truth"
         ]
 
         for idx, segment in enumerate(segments):
