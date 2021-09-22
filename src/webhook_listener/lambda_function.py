@@ -8,6 +8,29 @@ from config import HOST, ADMIN_EMAIL, BUCKET
 s3_client = boto3.client("s3")
 
 
+def move_file(bucket, file, source, destination):
+    """Move `file` in `bucket` from `source` to `destination` folder
+
+    Parameters
+    ----------
+    bucket : str
+        S3 bucket name.
+    file : str
+        Name of file to be moved (without full-path).
+    source : str
+        Source folder in S3 bucket.
+    destination : str
+        Destination folder in S3 bucket.
+    """
+    s3_resource = boto3.resource("s3")
+
+    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
+        CopySource=f"{bucket}/{source}/{file}"
+    )
+    s3_resource.Object(bucket, f"{source}/{file}").delete()
+    print(f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
+
+
 def lambda_handler(event, context):
     """Event listener for S3 event and checks if annotation has been verified by admin.
 
@@ -42,18 +65,41 @@ def lambda_handler(event, context):
             print(error)
             return {"statusCode": 400, "body": json.dumps(error)}
         else:
+            audio_url = task["data"]["audio"]
+            audio_file = urljoin(audio_url, urlparse(audio_url).path)
+            job_name = os.path.splitext(os.path.basename(audio_file))[0]
+            folder_name = os.path.basename(os.path.dirname(audio_file))
+            language = folder_name.split("-")[0]
             annotations = task["annotations"]
 
-            for annotation in annotations:
-                audio_url = task["data"]["audio"]
-                audio_file = urljoin(audio_url, urlparse(audio_url).path)
-                job_name = os.path.splitext(os.path.basename(audio_file))[0]
-                folder_name = os.path.basename(os.path.dirname(audio_file))
-                language = folder_name.split("-")[0]
+            archive_files = False
 
+            # get all annotations
+            for annotation in annotations:
                 # if audio has been verified by admin of specific language
                 if ADMIN_EMAIL[language] in annotation["created_username"]:
-                    # export JSON to `label-studio/verified`
+                    # check if marked for archival by admin
+                    for d in annotation["result"]:
+                        if (
+                            d["from_name"] == "deletion"
+                            and d["value"]["choices"][0] == "Delete"
+                        ):
+                            archive_files = True
+
+                    if archive_files:
+                        # moves original audio and text to `archive`
+                        for ext in ["aac", "txt"]:
+                            move_file(
+                                BUCKET,
+                                f"{job_name}.{ext}",
+                                f"dropbox/{folder_name}",
+                                f"archive/{folder_name}",
+                            )
+                        deletion_message = f"Successfully archived task {task_id}."
+                        print(deletion_message)
+                        return {"statusCode": 200, "body": json.dumps(deletion_message)}
+
+                    # export verified JSON to `label-studio/verified`
                     save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
                     s3_client.put_object(
                         Body=json.dumps(task).encode("utf8"),
@@ -61,7 +107,15 @@ def lambda_handler(event, context):
                         Key=save_path,
                     )
 
-                    verified_message = f"Transcription has been verified by administrator. File {save_path} successfully created."
+                    # delete old raw JSONs from `label-studio/raw`
+                    delete_path = (
+                        f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
+                    )
+                    s3_client.delete_object(
+                        Bucket=BUCKET, Key=delete_path,
+                    )
+
+                    verified_message = f"Transcription has been verified by administrator. File {save_path} successfully created; deleted old raw annotation from S3."
                     print(verified_message)
                     return {"statusCode": 200, "body": json.dumps(verified_message)}
 
