@@ -78,6 +78,10 @@ def lambda_handler(event, context):
             for annotation in annotations:
                 # if audio has been verified by admin of specific language
                 if ADMIN_EMAIL[language] in annotation["created_username"]:
+                    delete_path = (
+                        f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
+                    )
+
                     # check if marked for archival by admin
                     for d in annotation["result"]:
                         if (
@@ -95,29 +99,44 @@ def lambda_handler(event, context):
                                 f"dropbox/{folder_name}",
                                 f"archive/{folder_name}",
                             )
+
+                        # delete old raw JSONs from `label-studio/raw`
+                        s3_client.delete_object(
+                            Bucket=BUCKET, Key=delete_path,
+                        )
+
+                        # delete task from Label Studio
+                        try:
+                            requests.delete(
+                                f"{HOST}/api/tasks/{task_id}", headers=headers
+                            )
+                        except Exception as exc:
+                            error = f"Error: {exc}"
+                            print(error)
+                            return {"statusCode": 400, "body": json.dumps(error)}
+
                         deletion_message = f"Successfully archived task {task_id}."
                         print(deletion_message)
                         return {"statusCode": 200, "body": json.dumps(deletion_message)}
+                    else:
+                        # export verified JSON to `label-studio/verified`
+                        save_path = (
+                            f"label-studio/verified/{folder_name}/{job_name}.json"
+                        )
+                        s3_client.put_object(
+                            Body=json.dumps(task).encode("utf8"),
+                            Bucket=BUCKET,
+                            Key=save_path,
+                        )
 
-                    # export verified JSON to `label-studio/verified`
-                    save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
-                    s3_client.put_object(
-                        Body=json.dumps(task).encode("utf8"),
-                        Bucket=BUCKET,
-                        Key=save_path,
-                    )
+                        # delete old raw JSONs from `label-studio/raw`
+                        s3_client.delete_object(
+                            Bucket=BUCKET, Key=delete_path,
+                        )
 
-                    # delete old raw JSONs from `label-studio/raw`
-                    delete_path = (
-                        f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
-                    )
-                    s3_client.delete_object(
-                        Bucket=BUCKET, Key=delete_path,
-                    )
-
-                    verified_message = f"Transcription has been verified by administrator. File {save_path} successfully created; deleted old raw annotation from S3."
-                    print(verified_message)
-                    return {"statusCode": 200, "body": json.dumps(verified_message)}
+                        verified_message = f"Transcription has been verified by administrator. File {save_path} successfully created; deleted old raw annotation from S3."
+                        print(verified_message)
+                        return {"statusCode": 200, "body": json.dumps(verified_message)}
 
             unverified_message = "Transcription has not been verified by administrator."
             print(unverified_message)
