@@ -142,7 +142,7 @@ def init_label_studio_annotation():
     ]
 
 
-def segment(results):
+def segment(results, ground_truth):
     """Segments Amazon Transcribe raw output to individual sentences based on full-stop.
 
     Parameters
@@ -193,6 +193,8 @@ def segment(results):
 
             # concat words in a sentence with whitespace
             text_values["text"] = [" ".join(text_values["text"] + [token])]
+            # provide region-wise ground truth for convenience
+            ground_truth_values["text"] = [ground_truth]
 
         elif item["type"] == "punctuation":
             # if `.` or `?` is detected, assume new sentence begins
@@ -239,8 +241,8 @@ def create_task(file_uri, job):
 
     Returns
     -------
-    Tuple[TranscribeStatus, Dict[str, Any]]
-        Tuple consisting of (1) status of AWS Transcribe job and (2) JSON-formatted task for Label Studio
+    Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]
+        Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe results and (3) JSON-formatted task for Label Studio
     """
     try:
         download_uri = job["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
@@ -259,6 +261,7 @@ def create_task(file_uri, job):
         print(f"Error: {exc}")
         return (
             TranscribeStatus.FAILED,
+            None,
             {
                 "data": {"audio": file_uri},
                 "predictions": [
@@ -280,6 +283,7 @@ def create_task(file_uri, job):
     # if no exceptions occur, or if confidence is set to 0.0 after division-by-zero error
     return (
         TranscribeStatus.SUCCESS,
+        results,
         {
             "data": {"audio": file_uri},
             "predictions": [
@@ -292,7 +296,6 @@ def create_task(file_uri, job):
                             "type": "textarea",
                             "value": {"text": transcriptions},
                         },
-                        *segment(results),
                     ],
                     "score": confidence,
                 }
@@ -426,7 +429,7 @@ def main(audio_file):
     language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
 
-    status, task = transcribe_file(
+    status, results, task = transcribe_file(
         job_name,
         audio_file,
         transcribe_client,
@@ -447,13 +450,11 @@ def main(audio_file):
             print(f"Failed to fetch key: {text_file_path}")
         else:
             ground_truth = text_file["Body"].read().decode("utf-8")
+            # add region-wise transcriptions and ground truth (for convenience of labeler)
+            task["predictions"][0]["result"] += segment(results, ground_truth)
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
-    # add ground truth to all region-wise ground truths (for convenience of labeler)
-    for d in task["predictions"][0]["result"]:
-        if d["from_name"] == "region-ground-truth":
-            d["value"]["text"] = [ground_truth]
 
     if status == TranscribeStatus.FAILED or transcribed_text == "":
         # archive Transcribe-failed annotations
