@@ -8,6 +8,10 @@ from enum import Enum, auto
 import re, string
 from urllib.parse import unquote_plus
 from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID
+from operator import itemgetter
+from itertools import groupby
+from math import ceil
+from homophones import HOMOPHONES, match_sequence_homophones
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -142,13 +146,15 @@ def init_label_studio_annotation():
     ]
 
 
-def segment(results, ground_truth):
+def sentencewise_segment(results, ground_truth):
     """Segments Amazon Transcribe raw output to individual sentences based on full-stop.
 
     Parameters
     ----------
     results : Dict[str, List]
         Resultant output received from AWS Transcribe.
+    ground_truth : str
+        Ground truth text for the corresponding annotation.
 
     Returns
     -------
@@ -203,6 +209,82 @@ def segment(results, ground_truth):
                 new_sentence = True
             # append any punctuation (`.` and `,`) to sentence
             text_values["text"] = ["".join(text_values["text"] + [token])]
+
+    return output
+
+
+def overlapping_segments(results, ground_truth, max_repeats=None):
+    """Segments Amazon Transcribe raw output to individual sentences based on overlapping regions.
+
+    Parameters
+    ----------
+    results : Dict[str, List]
+        Resultant output received from AWS Transcribe.
+    ground_truth : str
+        Ground truth text for the corresponding annotation.
+    max_repeats : int, optional
+        Maximum number of repeats when detecting for overlaps, by default None.
+
+    Returns
+    -------
+    output : List[Dict[str, Any]]
+        List of dictionaries with segment-wise annotations for Label Studio.
+    """
+    output = []
+    sentence_counter = 0
+
+    transcripts = [
+        item["alternatives"][0]["content"].lower().strip() for item in results["items"]
+    ]
+    ground_truth = ground_truth.lower().strip().split(" ")
+    # gets approximate number of repeats for case where len(ground_truth) << len(transcripts)
+    # multiplier also manually tweakble if needed, e.g. 3
+    multiplier = (
+        max_repeats if max_repeats else ceil(len(transcripts) / len(ground_truth))
+    )
+    ground_truth *= multiplier
+
+    # find overlaps and mark as new sequence
+    aligned_transcripts, _ = match_sequence_homophones(
+        transcripts, ground_truth, HOMOPHONES
+    )
+
+    for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
+        # add a newly initialized pair of lists if new sequence is detected
+        seq = list(map(itemgetter(1), g))
+        output = output + init_label_studio_annotation()
+
+        idx = sentence_counter * 3
+
+        text_dict = output[idx]
+        label_dict = output[idx + 1]
+        ground_truth_dict = output[idx + 2]
+
+        sentence_id = f"sentence_{sentence_counter}"
+        text_dict["id"] = sentence_id
+        label_dict["id"] = sentence_id
+        ground_truth_dict["id"] = sentence_id
+
+        text_values = text_dict["value"]
+        label_values = label_dict["value"]
+        ground_truth_values = ground_truth_dict["value"]
+
+        # first and last element of the sequence
+        first, last = seq[0], seq[-1]
+
+        # start time is at the first word of the sequence
+        # end time is at the last word of the sequence
+        for d in [text_values, label_values, ground_truth_values]:
+            d["start"] = float(results["items"][first]["start_time"])
+            d["end"] = float(results["items"][last]["end_time"])
+
+        # concat words in a sequence with whitespace
+        overlap = [" ".join(transcripts[first : last + 1])]
+        # provide region-wise transcription and ground truth for convenience
+        for d in [text_values, ground_truth_values]:
+            d["text"] = overlap
+
+        sentence_counter += 1
 
     return output
 
@@ -451,7 +533,9 @@ def main(audio_file):
         else:
             ground_truth = text_file["Body"].read().decode("utf-8")
             # add region-wise transcriptions and ground truth (for convenience of labeler)
-            task["predictions"][0]["result"] += segment(results, ground_truth)
+            task["predictions"][0]["result"] += overlapping_segments(
+                results, ground_truth, max_repeats=3
+            )
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
