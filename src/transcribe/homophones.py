@@ -1,5 +1,6 @@
 import collections
 from difflib import SequenceMatcher
+from metaphone import doublemetaphone
 
 """
 English Homophones: 
@@ -11,86 +12,99 @@ Indonesian Homophones:
 """
 HOMOPHONES = {
     "en": {
-        "air": ["heir"],
-        "aisle": ["isle"],
-        "eye": ["I"],
-        "bare": ["bear"],
-        "be": ["bee"],
-        "brake": ["break"],
-        "buy": ["by"],
-        "cell": ["sell"],
-        "cent": ["scent"],
-        "cereal": ["serial"],
-        "coarse": ["course"],
-        "complement": ["compliment"],
-        "dam": ["damn"],
-        "dear": ["deer"],
-        "die": ["dye"],
-        "fair": ["fare"],
-        "fir": ["fur"],
-        "flour": ["flower"],
-        "for": ["four"],
-        "hair": ["hare"],
-        "heal": ["heel"],
-        "hear": ["here"],
-        "him": ["hymn"],
-        "hole": ["whole"],
-        "hour": ["our"],
-        "idle": ["idol"],
-        "in": ["inn"],
-        "knight": ["night"],
-        "knot": ["not"],
-        "know": ["no"],
-        "made": ["maid"],
-        "mail": ["male"],
-        "meat": ["meet"],
-        "morning": ["mourning"],
-        "none": ["nun"],
-        "oar": ["or"],
-        "one": ["won"],
-        "pair": ["pear"],
-        "peace": ["piece"],
-        "plain": ["plane"],
-        "poor": ["pour"],
-        "pray": ["prey"],
-        "principal": ["principle"],
-        "profit": ["prophet"],
-        "real": ["reel"],
-        "right": ["write"],
-        "root": ["route"],
-        "sail": ["sale"],
-        "sea": ["see"],
-        "seam": ["seem"],
-        "sight": ["site"],
-        "sew": ["so"],
-        "shore": ["sure"],
-        "sole": ["soul"],
-        "some": ["sum"],
-        "son": ["sun"],
-        "stair": ["stare"],
-        "stationary": ["stationery"],
-        "steal": ["steel"],
-        "suite": ["sweet"],
-        "tail": ["tale"],
-        "their": ["there"],
-        "to": ["too", "two"],
-        "toe": ["tow"],
-        "waist": ["waste"],
-        "wait": ["weight"],
-        "way": ["weigh"],
-        "weak": ["week"],
-        "wear": ["where"],
+        "AR": ["air", "oar", "wear", "where"],
+        "HRR": ["heir"],
+        "AL": ["aisle", "isle", "whole"],
+        "A": ["eye", "way", "weigh"],
+        "AA": ["I"],
+        "PR": ["bare", "pair", "poor", "pray", "prey"],
+        "PRR": ["bear", "pear", "pour"],
+        "P": ["be", "bee", "buy", "by"],
+        "PRK": ["brake"],
+        "PRKK": ["break"],
+        "SL": ["cell", "sail", "sale", "sole"],
+        "SLL": ["sell", "soul"],
+        "SNT": ["cent"],
+        "SNTT": ["scent"],
+        "SRL": ["cereal"],
+        "SRLL": ["serial"],
+        "KRS": ["coarse", "course"],
+        "KMPLMNT": ["complement"],
+        "KMPLMNTT": ["compliment"],
+        "TM": ["dam"],
+        "TMNN": ["damn"],
+        "TR": ["dear"],
+        "TRR": ["deer"],
+        "T": ["die", "dye", "to", "too", "toe", "tow"],
+        "FR": ["fair", "fare", "fir", "for"],
+        "FRR": ["fur", "four"],
+        "FLR": ["flour"],
+        "FLRR": ["flower"],
+        "HR": ["hair", "hare", "hear", "here", "hour"],
+        "HL": ["heal", "hole"],
+        "HLL": ["heel"],
+        "HM": ["him"],
+        "HMNN": ["hymn"],
+        "ARR": ["our", "or"],
+        "ATL": ["idle"],
+        "ATLL": ["idol"],
+        "AN": ["in", "one"],
+        "ANN": ["inn", "won"],
+        "NT": ["knight", "knot"],
+        "NTT": ["night", "not"],
+        "N": ["know", "no"],
+        "MT": ["made", "meat"],
+        "MTT": ["maid", "meet"],
+        "ML": ["mail", "male"],
+        "MRNNK": ["morning"],
+        "MRNNKK": ["mourning"],
+        "NN": ["none"],
+        "NNN": ["nun"],
+        "PS": ["peace"],
+        "PSS": ["piece"],
+        "PLN": ["plain", "plane"],
+        "PRNSPL": ["principal", "principle"],
+        "PRFT": ["profit"],
+        "PRFTT": ["prophet"],
+        "RL": ["real"],
+        "RLL": ["reel"],
+        "RT": ["right", "write", "root", "route"],
+        "S": ["sea", "see", "sew", "so"],
+        "SM": ["seam", "some"],
+        "SMM": ["seem", "sum"],
+        "ST": ["sight", "site", "suite"],
+        "XR": ["shore"],
+        "SR": ["sure"],
+        "SN": ["son"],
+        "SNN": ["sun"],
+        "STR": ["stair", "stare"],
+        "STXNR": ["stationary", "stationery"],
+        "STL": ["steal"],
+        "STLL": ["steel"],
+        "STT": ["sweet"],
+        "TL": ["tail", "tale"],
+        "0R": ["their", "there"],
+        "AST": ["waist", "waste"],
+        "AT": ["wait"],
+        "ATT": ["weight"],
+        "AK": ["weak"],
+        "AKK": ["week"],
     },
     "id": {
-        "masa": ["massa"],
-        "rok": ["rock"],
-        "bank": ["bang"],
-        "tuju": ["tujuh"],
-        "tank": ["tang"],
-        "sanksi": ["sangsi"],
-        "syarat": ["sarat"],
-        "khas": ["kas"],
-        "babat": ["babad"],
+        "MS": ["masa", "massa"],
+        "RK": ["rok"],
+        "RKK": ["rock"],
+        "PNK": ["bank"],
+        "PNKK": ["bang"],
+        "TJ": ["tuju", "tujuh"],
+        "TNK": ["tank"],
+        "TNKK": ["tang"],
+        "SNKS": ["sanksi", "sangsi"],
+        "SRT": ["syarat"],
+        "SRTT": ["sarat"],
+        "KS": ["khas"],
+        "KSS": ["kas"],
+        "PPT": ["babat", "babad"],
     },
 }
 
@@ -125,6 +139,7 @@ class HomophoneString(collections.UserString):
         """
         super().__init__(seq)
 
+        self.metaphone, _ = doublemetaphone(str(seq))
         self.homophones = homophones
         self.inverse_homophones = inverse_homophones
 
@@ -141,7 +156,9 @@ class HomophoneString(collections.UserString):
         bool
             Whether the strings are equal or homophones with each other.
         """
-        if self.homophones.get(other) and self.data in self.homophones.get(other):
+        if self.homophones.get(self.metaphone) and other in self.homophones.get(
+            self.metaphone
+        ):
             return True
         return self.data == other
 
@@ -158,7 +175,7 @@ class HomophoneString(collections.UserString):
         return hash(self.data)
 
 
-def match_sequence_homophones(list1, list2, homophones):
+def match_sequence(list1, list2, homophones):
     """Finds index of overlaps between two lists given a homophone mapping.
 
     Parameters
@@ -175,6 +192,18 @@ def match_sequence_homophones(list1, list2, homophones):
     List[List[int], List[int]]
         Pair of lists containing list of indices of overlap.
     """
+    for _list in [list1, list2]:
+        for word in _list:
+            metaphone, _ = doublemetaphone(word)
+            if (
+                metaphone in homophones
+                and word not in homophones[metaphone]
+                and metaphone != ""
+            ):
+                homophones[metaphone] += [word]
+            elif metaphone not in homophones and metaphone != "":
+                homophones[metaphone] = [word]
+
     inverse_homophones = {
         string: key for key, value in homophones.items() for string in value
     }

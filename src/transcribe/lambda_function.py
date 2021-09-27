@@ -11,7 +11,7 @@ from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID
 from operator import itemgetter
 from itertools import groupby
 from math import ceil
-from homophones import HOMOPHONES, match_sequence_homophones
+from homophones import HOMOPHONES, match_sequence
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -213,7 +213,7 @@ def sentencewise_segment(results, ground_truth):
     return output
 
 
-def overlapping_segments(results, ground_truth, max_repeats=None):
+def overlapping_segments(results, ground_truth, language, max_repeats=None):
     """Segments Amazon Transcribe raw output to individual sentences based on overlapping regions.
 
     Parameters
@@ -236,7 +236,9 @@ def overlapping_segments(results, ground_truth, max_repeats=None):
     transcripts = [
         item["alternatives"][0]["content"].lower().strip() for item in results["items"]
     ]
-    ground_truth = ground_truth.lower().strip().split(" ")
+
+    ground_truth = ground_truth.lower().strip().replace("-", " ").split(" ")
+
     # gets approximate number of repeats for case where len(ground_truth) << len(transcripts)
     # multiplier also manually tweakble if needed, e.g. 3
     multiplier = (
@@ -245,8 +247,8 @@ def overlapping_segments(results, ground_truth, max_repeats=None):
     ground_truth *= multiplier
 
     # find overlaps and mark as new sequence
-    aligned_transcripts, _ = match_sequence_homophones(
-        transcripts, ground_truth, HOMOPHONES
+    aligned_transcripts, _ = match_sequence(
+        transcripts, ground_truth, HOMOPHONES[language]
     )
 
     for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
@@ -534,7 +536,7 @@ def main(audio_file):
             ground_truth = text_file["Body"].read().decode("utf-8")
             # add region-wise transcriptions and ground truth (for convenience of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
-                results, ground_truth, max_repeats=3
+                results, ground_truth, language=language, max_repeats=3
             )
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
