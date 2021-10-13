@@ -553,9 +553,10 @@ def main(audio_file):
                 f"dropbox/{folder_name}",
                 f"archive/{folder_name}",
             )
-    elif not compare_transcriptions(ground_truth, transcribed_text):
-        # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
-        save_path = f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
+    # # uncomment this section if we want strict comparison; else, we can simply split based on aligned sections.
+    # elif not compare_transcriptions(ground_truth, transcribed_text):
+    #     # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
+    #     save_path = f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
     else:
         # otherwise, save annotations to `label-studio/verified` for audio splitting
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"

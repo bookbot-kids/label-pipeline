@@ -65,7 +65,14 @@ def trim_audio(input_path, start, end):
         "asetpts", "PTS-STARTPTS"
     )
 
-    output = ffmpeg.output(aud, "pipe:", format="adts")
+    # # uncomment for aac
+    # output = ffmpeg.output(aud, "pipe:", format="adts")
+    
+    # kaldi training format: wav, 16bit, 24khz, mono
+    # ffmpeg -i in.aac -acodec pcm_s16le -ac 1 -ar 24000 out.wav
+    output = ffmpeg.output(
+        aud, "pipe:", acodec="pcm_s16le", format="wav", ac=1, ar=24000,
+    )
     stdout, stderr = output.run_async(pipe_stdout=True, pipe_stderr=True).communicate()
     return (stdout, stderr)
 
@@ -121,7 +128,7 @@ def split_export_audio(annotations, annotation_key, audio_file, bucket, key_pref
             try:
                 # trim export audio segment
                 stdout, stderr = trim_audio(audio_file, values["start"], values["end"])
-                s3_client.put_object(Body=stdout, Bucket=bucket, Key=f"{save_path}.aac")
+                s3_client.put_object(Body=stdout, Bucket=bucket, Key=f"{save_path}.wav")
 
                 # export audio segment's transcription
                 s3_client.put_object(
