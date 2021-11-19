@@ -8,7 +8,7 @@ from config import ADMIN_EMAIL, SIGNED_URL_TIMEOUT
 s3_client = boto3.client("s3")
 
 
-def get_audio_file(bucket, key):
+def get_audio_file(bucket, key, audio_extension):
     """Get corresponding audio file of JSON annotation (`key`) from AWS S3, in `bucket`.
 
     Parameters
@@ -25,7 +25,7 @@ def get_audio_file(bucket, key):
     """
     job_name = os.path.splitext(os.path.basename(key))[0]
     folder_name = os.path.basename(os.path.dirname(key))
-    audio_file = f"dropbox/{folder_name}/{job_name}.aac"
+    audio_file = f"dropbox/{folder_name}/{job_name}{audio_extension}"
     try:
         s3_source_signed_url = s3_client.generate_presigned_url(
             "get_object",
@@ -35,6 +35,7 @@ def get_audio_file(bucket, key):
     except Exception as exc:
         print(f"Error: {exc}")
         print(f"Failed to fetch key: {audio_file}")
+        return None
     else:
         print(f"Successfully fetched {audio_file}")
         return s3_source_signed_url
@@ -67,7 +68,7 @@ def trim_audio(input_path, start, end):
 
     # # uncomment for aac
     # output = ffmpeg.output(aud, "pipe:", format="adts")
-    
+
     # kaldi training format: wav, 16bit, 24khz, mono
     # ffmpeg -i in.aac -acodec pcm_s16le -ac 1 -ar 24000 out.wav
     output = ffmpeg.output(
@@ -157,11 +158,16 @@ def move_file(bucket, file, source, destination):
     """
     s3_resource = boto3.resource("s3")
 
-    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
-        CopySource=f"{bucket}/{source}/{file}"
-    )
-    s3_resource.Object(bucket, f"{source}/{file}").delete()
-    print(f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
+    try:
+        s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
+            CopySource=f"{bucket}/{source}/{file}"
+        )
+        s3_resource.Object(bucket, f"{source}/{file}").delete()
+        print(
+            f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+        )
+    except Exception as exc:
+        print(f"{bucket}/{source}/{file} not available")
 
 
 def lambda_handler(event, context):
@@ -186,22 +192,30 @@ def lambda_handler(event, context):
         # "predictions" if immediately correct after Transcribe, else take human "annotations"
         annotation_key = "annotations" if "annotations" in task else "predictions"
         annotations = task[annotation_key]
+        # get the corresponding audio file extension
+        _, audio_extension = os.path.splitext(os.path.basename(task["data"]["audio"]))
     except Exception as e:
         print(e)
         raise e
     else:
         # get audio file from S3
-        audio_file = get_audio_file(bucket, key)
-        # splits audio + transcription based on annotation, exports to S3
-        split_export_audio(
-            annotations, annotation_key, audio_file, bucket, f"{folder_name}/{job_name}"
-        )
-
-        # moves original audio and text to `archive`
-        for ext in ["aac", "txt"]:
-            move_file(
+        audio_file = get_audio_file(bucket, key, audio_extension)
+        if audio_file:
+            # splits audio + transcription based on annotation, exports to S3
+            split_export_audio(
+                annotations,
+                annotation_key,
+                audio_file,
                 bucket,
-                f"{job_name}.{ext}",
-                f"dropbox/{folder_name}",
-                f"archive/{folder_name}",
+                f"{folder_name}/{job_name}",
             )
+
+            audio_extension = audio_extension[1:]  # removes the dot
+            # moves original audio and text to `archive`
+            for ext in [audio_extension, "srt", "txt"]:
+                move_file(
+                    bucket,
+                    f"{job_name}.{ext}",
+                    f"dropbox/{folder_name}",
+                    f"archive/{folder_name}",
+                )

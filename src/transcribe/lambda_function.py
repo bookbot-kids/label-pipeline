@@ -12,6 +12,7 @@ from operator import itemgetter
 from itertools import groupby
 from math import ceil
 from homophones import HOMOPHONES, match_sequence
+from srt2txt import srt2txt
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -508,7 +509,8 @@ def main(audio_file):
     audio_file : str
         Audio filename with complete S3 path.
     """
-    job_name = os.path.splitext(os.path.basename(audio_file))[0]
+    EXT2FORMAT = {".wav": "wav", ".m4a": "mp4", ".aac": "mp4"}
+    job_name, audio_extension = os.path.splitext(os.path.basename(audio_file))
     folder_name = os.path.basename(os.path.dirname(audio_file))
     language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
@@ -517,27 +519,51 @@ def main(audio_file):
         job_name,
         audio_file,
         transcribe_client,
-        media_format="mp4",
+        media_format=EXT2FORMAT[audio_extension],
         language_code=language_code,
     )
 
+    # is_from_youtube = folder_name.split("-")[1] == "youtube"
+
     transcribed_text = task["predictions"][0]["result"][0]["value"]["text"][0]
     ground_truth = ""
+    # flag to indicate if txt ground truth can be found; otherwise, consult srt file
+    # this avoids having to attempt to get BOTH txt and srt from S3
+    is_text_file_available = False
 
     if status == TranscribeStatus.SUCCESS:
+        # try and find corresponding txt ground truth file
         text_file_path = f"dropbox/{folder_name}/{job_name}.txt"
         try:
             # if successfully transcribed, get and compare with ground truth `.txt` file
             text_file = s3_client.get_object(Bucket=BUCKET, Key=text_file_path)
         except Exception as exc:
-            print(f"Error: {exc}")
-            print(f"Failed to fetch key: {text_file_path}")
+            print(
+                f"Key {text_file_path} is unavailable, will attempt to grab `srt` file.."
+            )
         else:
+            is_text_file_available = True
             ground_truth = text_file["Body"].read().decode("utf-8")
             # add region-wise transcriptions and ground truth (for convenience of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
                 results, ground_truth, language=language, max_repeats=3
             )
+
+        if not is_text_file_available:
+            # otherwise, try and find the corresponding srt ground truth file
+            srt_file_path = f"dropbox/{folder_name}/{job_name}.srt"
+            try:
+                # if successfully transcribed, get and compare with ground truth `.srt` file
+                srt_file = s3_client.get_object(Bucket=BUCKET, Key=srt_file_path)
+            except Exception as exc:
+                print(f"Key {srt_file_path} is also unavailable..")
+            else:
+                # convert srt to txt
+                ground_truth = srt2txt(srt_file["Body"].read().decode("utf-8"))
+                # add region-wise transcriptions and ground truth (for convenience of labeler)
+                task["predictions"][0]["result"] += overlapping_segments(
+                    results, ground_truth, language=language, max_repeats=3
+                )
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
@@ -545,14 +571,19 @@ def main(audio_file):
     if status == TranscribeStatus.FAILED or transcribed_text == "":
         # archive Transcribe-failed annotations
         save_path = f"archive/{folder_name}/{job_name}.json"
+
         # move audios to `archive`
-        for ext in ["aac", "txt"]:
+        audio_extension = audio_extension[1:]  # remove the dot
+        ground_truth_extension = "txt" if is_text_file_available else "srt"
+
+        for ext in [audio_extension, ground_truth_extension]:
             move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
                 f"dropbox/{folder_name}",
                 f"archive/{folder_name}",
             )
+
     # # uncomment this section if we want strict comparison; else, we can simply split based on aligned sections.
     # elif not compare_transcriptions(ground_truth, transcribed_text):
     #     # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
