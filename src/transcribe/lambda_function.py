@@ -12,6 +12,7 @@ from operator import itemgetter
 from itertools import groupby
 from math import ceil
 from homophones import HOMOPHONES, match_sequence
+from mispronunciation import detect_mispronunciation
 from srt2txt import srt2txt
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
@@ -112,6 +113,28 @@ def move_file(bucket, file, source, destination):
     )
     s3_resource.Object(bucket, f"{source}/{file}").delete()
     print(f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
+
+
+def copy_file(bucket, file, source, destination):
+    """Copy `file` in `bucket` from `source` to `destination` folder
+
+    Parameters
+    ----------
+    bucket : str
+        S3 bucket name.
+    file : str
+        Name of file to be copied (without full-path).
+    source : str
+        Source folder in S3 bucket.
+    destination : str
+        Destination folder in S3 bucket.
+    """
+    s3_resource = boto3.resource("s3")
+
+    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
+        CopySource=f"{bucket}/{source}/{file}"
+    )
+    print(f"Copied file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
 
 
 def init_label_studio_annotation():
@@ -223,6 +246,8 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
         Resultant output received from AWS Transcribe.
     ground_truth : str
         Ground truth text for the corresponding annotation.
+    language : str
+        Language of the transcript-ground truth pair.
     max_repeats : int, optional
         Maximum number of repeats when detecting for overlaps, by default None.
 
@@ -241,16 +266,15 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
     ground_truth = ground_truth.lower().strip().replace("-", " ").split(" ")
 
     # gets approximate number of repeats for case where len(ground_truth) << len(transcripts)
-    # multiplier also manually tweakble if needed, e.g. 3
+    # multiplier also manually tweakable if needed, e.g. 3
     multiplier = (
         max_repeats if max_repeats else ceil(len(transcripts) / len(ground_truth))
     )
     ground_truth *= multiplier
 
     # find overlaps and mark as new sequence
-    aligned_transcripts, _ = match_sequence(
-        transcripts, ground_truth, HOMOPHONES[language]
-    )
+    homophones = HOMOPHONES[language] if language in HOMOPHONES else None
+    aligned_transcripts, _ = match_sequence(transcripts, ground_truth, homophones)
 
     for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
         # add a newly initialized pair of lists if new sequence is detected
@@ -290,6 +314,47 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
         sentence_counter += 1
 
     return output
+
+
+def classify_mispronunciation(results, ground_truth, language):
+    """Classifies if a transcription result and ground truth text is a case of mispronunciation.
+
+    Parameters
+    ----------
+    results : Dict[str, List]
+        Resultant output received from AWS Transcribe.
+    ground_truth : str
+        Ground truth text for the corresponding annotation.
+    language : str
+        Language of the transcript-ground truth pair.
+
+    Returns
+    -------
+    bool
+        True if there is a mispronunciation. False otherwise.
+    """
+    transcripts = [
+        item["alternatives"][0]["content"]
+        .replace("-", " ")
+        .translate(str.maketrans("", "", string.punctuation))
+        .lower()
+        .strip()
+        for item in results["items"]
+    ]
+
+    ground_truth = (
+        ground_truth.replace("-", " ")
+        .translate(str.maketrans("", "", string.punctuation))
+        .lower()
+        .strip()
+        .split(" ")
+    )
+
+    homophones = HOMOPHONES[language] if language in HOMOPHONES else None
+
+    is_mispronunciation = detect_mispronunciation(ground_truth, transcripts, homophones)
+
+    return is_mispronunciation
 
 
 def compare_transcriptions(ground_truth, transcribed_text):
@@ -530,6 +595,7 @@ def main(audio_file):
     # flag to indicate if txt ground truth can be found; otherwise, consult srt file
     # this avoids having to attempt to get BOTH txt and srt from S3
     is_text_file_available = False
+    is_mispronunciation = False
 
     if status == TranscribeStatus.SUCCESS:
         # try and find corresponding txt ground truth file
@@ -544,6 +610,10 @@ def main(audio_file):
         else:
             is_text_file_available = True
             ground_truth = text_file["Body"].read().decode("utf-8")
+            # classify for mispronunciation
+            is_mispronunciation = classify_mispronunciation(
+                results, ground_truth, language=language
+            )
             # add region-wise transcriptions and ground truth (for convenience of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
                 results, ground_truth, language=language, max_repeats=3
@@ -560,6 +630,10 @@ def main(audio_file):
             else:
                 # convert srt to txt
                 ground_truth = srt2txt(srt_file["Body"].read().decode("utf-8"))
+                # classify for mispronunciation
+                is_mispronunciation = classify_mispronunciation(
+                    results, ground_truth, language=language
+                )
                 # add region-wise transcriptions and ground truth (for convenience of labeler)
                 task["predictions"][0]["result"] += overlapping_segments(
                     results, ground_truth, language=language, max_repeats=3
@@ -591,6 +665,29 @@ def main(audio_file):
     else:
         # otherwise, save annotations to `label-studio/verified` for audio splitting
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
+
+    if is_mispronunciation:
+        # copy triplets of audio-transcript-ground truth to a separate folder for inspection
+        clone_save_prefix = f"mispronunciations/{folder_name}"
+
+        # audio & ground truth
+        audio_extension = audio_extension[1:]  # remove the dot
+        ground_truth_extension = "txt" if is_text_file_available else "srt"
+
+        for ext in [audio_extension, ground_truth_extension]:
+            copy_file(
+                BUCKET,
+                f"{job_name}.{ext}",
+                f"dropbox/{folder_name}",
+                clone_save_prefix,
+            )
+
+        # transcript
+        s3_client.put_object(
+            Body=json.dumps(task),
+            Bucket=BUCKET,
+            Key=f"{clone_save_prefix}/{job_name}.json",
+        )
 
     # export JSON to respective folders in S3
     s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)
