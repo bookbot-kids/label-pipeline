@@ -12,7 +12,11 @@ from operator import itemgetter
 from itertools import groupby
 from math import ceil
 from homophones import HOMOPHONES, match_sequence
-from mispronunciation import detect_mispronunciation
+from mispronunciation import (
+    detect_mispronunciation,
+    Mispronunciation,
+    MISPRONUNCIATION_FOLDER_MAPPING,
+)
 from srt2txt import srt2txt
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
@@ -330,31 +334,30 @@ def classify_mispronunciation(results, ground_truth, language):
 
     Returns
     -------
-    bool
-        True if there is a mispronunciation. False otherwise.
+    Mispronunciation
+        Type of mispronunciation present.
     """
+
+    def _preprocess_sequence(sequence):
+        return (
+            sequence.replace("-", " ")
+            .translate(str.maketrans("", "", string.punctuation))
+            .lower()
+            .strip()
+        )
+
     transcripts = [
-        item["alternatives"][0]["content"]
-        .replace("-", " ")
-        .translate(str.maketrans("", "", string.punctuation))
-        .lower()
-        .strip()
+        _preprocess_sequence(item["alternatives"][0]["content"])
         for item in results["items"]
     ]
 
-    ground_truth = (
-        ground_truth.replace("-", " ")
-        .translate(str.maketrans("", "", string.punctuation))
-        .lower()
-        .strip()
-        .split(" ")
-    )
+    ground_truth = _preprocess_sequence(ground_truth).split()
 
     homophones = HOMOPHONES[language] if language in HOMOPHONES else None
 
-    is_mispronunciation = detect_mispronunciation(ground_truth, transcripts, homophones)
+    mispronunciation = detect_mispronunciation(ground_truth, transcripts, homophones)
 
-    return is_mispronunciation
+    return mispronunciation
 
 
 def compare_transcriptions(ground_truth, transcribed_text):
@@ -595,7 +598,7 @@ def main(audio_file):
     # flag to indicate if txt ground truth can be found; otherwise, consult srt file
     # this avoids having to attempt to get BOTH txt and srt from S3
     is_text_file_available = False
-    is_mispronunciation = False
+    mispronunciation = None
 
     if status == TranscribeStatus.SUCCESS:
         # try and find corresponding txt ground truth file
@@ -611,12 +614,12 @@ def main(audio_file):
             is_text_file_available = True
             ground_truth = text_file["Body"].read().decode("utf-8")
             # classify for mispronunciation
-            is_mispronunciation = classify_mispronunciation(
-                results, ground_truth, language=language
+            mispronunciation = classify_mispronunciation(
+                results, ground_truth, language
             )
             # add region-wise transcriptions and ground truth (for convenience of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
-                results, ground_truth, language=language, max_repeats=3
+                results, ground_truth, language, max_repeats=3
             )
 
         if not is_text_file_available:
@@ -631,12 +634,12 @@ def main(audio_file):
                 # convert srt to txt
                 ground_truth = srt2txt(srt_file["Body"].read().decode("utf-8"))
                 # classify for mispronunciation
-                is_mispronunciation = classify_mispronunciation(
-                    results, ground_truth, language=language
+                mispronunciation = classify_mispronunciation(
+                    results, ground_truth, language
                 )
                 # add region-wise transcriptions and ground truth (for convenience of labeler)
                 task["predictions"][0]["result"] += overlapping_segments(
-                    results, ground_truth, language=language, max_repeats=3
+                    results, ground_truth, language, max_repeats=3
                 )
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
@@ -666,28 +669,32 @@ def main(audio_file):
         # otherwise, save annotations to `label-studio/verified` for audio splitting
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
 
-    if is_mispronunciation:
-        # copy triplets of audio-transcript-ground truth to a separate folder for inspection
-        clone_save_prefix = f"mispronunciations/{folder_name}"
-
+    if mispronunciation:
+        # get type(s) of mispronunciation
+        clone_save_subfolders = MISPRONUNCIATION_FOLDER_MAPPING[mispronunciation]
         # audio & ground truth
         audio_extension = audio_extension[1:]  # remove the dot
         ground_truth_extension = "txt" if is_text_file_available else "srt"
 
-        for ext in [audio_extension, ground_truth_extension]:
-            copy_file(
-                BUCKET,
-                f"{job_name}.{ext}",
-                f"dropbox/{folder_name}",
-                clone_save_prefix,
-            )
+        # save as addition, substitution, or both
+        for subfolder in clone_save_subfolders:
+            # copy triplets of audio-transcript-ground truth to a separate folder for inspection
+            clone_save_prefix = f"mispronunciations/{subfolder}/{folder_name}"
 
-        # transcript
-        s3_client.put_object(
-            Body=json.dumps(task),
-            Bucket=BUCKET,
-            Key=f"{clone_save_prefix}/{job_name}.json",
-        )
+            for ext in [audio_extension, ground_truth_extension]:
+                copy_file(
+                    BUCKET,
+                    f"{job_name}.{ext}",
+                    f"dropbox/{folder_name}",
+                    clone_save_prefix,
+                )
+
+            # transcript
+            s3_client.put_object(
+                Body=json.dumps(task),
+                Bucket=BUCKET,
+                Key=f"{clone_save_prefix}/{job_name}.json",
+            )
 
     # export JSON to respective folders in S3
     s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)

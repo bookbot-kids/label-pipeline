@@ -1,4 +1,18 @@
 from homophones import HOMOPHONES, match_sequence
+from enum import Enum, auto
+
+
+class Mispronunciation(Enum):
+    ADDITION = auto()
+    SUBSTITUTION = auto()
+    ADDITION_SUBSTITUTION = auto()
+
+
+MISPRONUNCIATION_FOLDER_MAPPING = {
+    Mispronunciation.ADDITION: ["addition"],
+    Mispronunciation.SUBSTITUTION: ["substitution"],
+    Mispronunciation.ADDITION_SUBSTITUTION: ["addition", "substitution"],
+}
 
 
 def remove_fillers(word):
@@ -20,20 +34,22 @@ def remove_fillers(word):
 
 def detect_mispronunciation(ground_truth, transcript, homophones=None):
     """Detects if the pair of ground truth and transcript is considered as a mispronunciation.
-    We define a mispronunciation to be either an addition/substitution. Ignores deletion.
+    We define a mispronunciation to be either an addition (A) / substitution (S).
+    Ignores deletion (D), 100% match (M) and single-word GT (X).
     Also handles homophones given a pre-defined list.
 
     Examples:
     ---------------------------------------------------------
     |    Ground Truth    |       Transcript       | Verdict |
     |--------------------|------------------------|---------|
-    | skel is a skeleton | skel is a skeleton     |    F    |
-    | skel is a skeleton | skel is not a skeleton |    T    |
-    | skel is a skeleton | skel is a zombie       |    T    |
-    | skel is a skeleton | skel is not a zombie   |    T    |
-    | skel is a skeleton | skel is skeleton       |    F    |
-    | skel is a skeleton | skel is zombie         |    T    |
-    | vain is a skeleton | vein is a skeleton     |    F    |
+    | skel is a skeleton | skel is a skeleton     |    M    |
+    | skel is a skeleton | skel is not a skeleton |    A    |
+    | skel is a skeleton | skel is a zombie       |    S    |
+    | skel is a skeleton | skel is not a zombie   |   A&S   |
+    | skel is a skeleton | skel is skeleton       |    D    |
+    | skel is a skeleton | skel is zombie         |    D    |
+    | vain is a skeleton | vein is a skeleton     |    M    |
+    | skel               | skel is a skeleton     |    X    |
     ---------------------------------------------------------
 
     Parameters
@@ -47,16 +63,16 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
 
     Returns
     -------
-    bool
-        True if there is a mispronunciation. False otherwise.
+    Mispronunciation
+        Type of mispronunciation present. Otherwise, None.
     """
     if homophones == None:
         homophones = HOMOPHONES["en"]
 
     transcript = list(filter(remove_fillers, transcript))
 
-    print(f"Transcript: {transcript}")
-    print(f"Ground Truth: {ground_truth}")
+    if len(ground_truth) == 1 or len(transcript) == 0:
+        return None  # single word or filler-only transcript
 
     tsc_idx = set(range(len(transcript)))
     gt_idx = set(range(len(ground_truth)))
@@ -67,23 +83,34 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     gt_diff = gt_idx.difference(aligned_gt)
 
     if len(gt_diff) == 0 and len(tsc_diff) == 0:
-        return False  # 100% match
+        return None  # 100% match
     elif len(gt_diff) > 0 and len(tsc_diff) == 0:
-        return False  # deletion only
+        return None  # deletion only
+    elif len(gt_diff) == 0 and len(tsc_diff) > 0:
+        return Mispronunciation.ADDITION  # addition only
+    elif len(tsc_diff) == len(gt_diff):
+        return Mispronunciation.SUBSTITUTION  # substitution only
+    elif len(tsc_diff) > len(gt_diff):
+        return Mispronunciation.ADDITION_SUBSTITUTION  # A & S
     else:
-        return True
+        return None
 
 
 def main():
     cases = [
-        ("skel is a skeleton", "skel is a skeleton", False),
-        ("skel is a skeleton", "skel is not a skeleton", True),
-        ("skel is a skeleton", "skel is a zombie", True),
-        ("skel is a skeleton", "skel is not a zombie", True),
-        ("skel is a skeleton", "skel is skeleton", False),
-        ("skel is a skeleton", "skel is zombie", True),
-        ("vain is a skeleton", "vein is a skeleton", False),
-        ("skel is a skeleton", "skel is uh a skeleton", False),
+        ("skel is a skeleton", "skel is a skeleton", None),
+        ("skel is a skeleton", "skel is not a skeleton", Mispronunciation.ADDITION),
+        ("skel is a skeleton", "skel is a zombie", Mispronunciation.SUBSTITUTION),
+        (
+            "skel is a skeleton",
+            "skel is not a zombie",
+            Mispronunciation.ADDITION_SUBSTITUTION,
+        ),
+        ("skel is a skeleton", "skel is skeleton", None),
+        ("skel is a skeleton", "skel is zombie", None),
+        ("vain is a skeleton", "vein is a skeleton", None),
+        ("skel is a skeleton", "skel is uh a skeleton", None),
+        ("skel", "skel is a skeleton", None),
     ]
 
     for case in cases:
