@@ -7,16 +7,12 @@ import json
 from enum import Enum, auto
 import re, string
 from urllib.parse import unquote_plus
-from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID
+from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID, SIGNED_URL_TIMEOUT
 from operator import itemgetter
 from itertools import groupby
 from math import ceil
 from homophones import HOMOPHONES, match_sequence
-from mispronunciation import (
-    detect_mispronunciation,
-    Mispronunciation,
-    MISPRONUNCIATION_FOLDER_MAPPING,
-)
+from mispronunciation import detect_mispronunciation
 from srt2txt import srt2txt
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
@@ -139,6 +135,36 @@ def copy_file(bucket, file, source, destination):
         CopySource=f"{bucket}/{source}/{file}"
     )
     print(f"Copied file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
+
+
+def create_presigned_url(bucket_name, object_name, expiration=3600):
+    """Generate a presigned URL to share an S3 object
+
+    Parameters
+    ----------
+    bucket_name : string
+        Bucket name
+    object_name : string
+        Name of object/file
+    expiration : int, optional
+        Time in seconds for the presigned URL to remain valid, by default 3600
+
+    Returns
+    -------
+    str
+        Presigned URL as string. If error, returns None.
+    """
+    try:
+        response = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": object_name},
+            ExpiresIn=expiration,
+        )
+    except ClientError as exc:
+        print(exc)
+        return None
+
+    return response
 
 
 def init_label_studio_annotation():
@@ -335,7 +361,7 @@ def classify_mispronunciation(results, ground_truth, language):
     Returns
     -------
     Mispronunciation
-        Type of mispronunciation present.
+        Object of mispronunciation present.
     """
 
     def _preprocess_sequence(sequence):
@@ -408,7 +434,6 @@ def create_task(file_uri, job):
             if item["type"] == "pronunciation"
         ) / sum(1.0 for item in results["items"] if item["type"] == "pronunciation")
     except ZeroDivisionError as div_err:
-        print(f"Error: {div_err}. Setting confidence to 0.0")
         confidence = 0.0
     except Exception as exc:
         print(f"Error: {exc}")
@@ -670,8 +695,8 @@ def main(audio_file):
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
 
     if mispronunciation:
-        # get type(s) of mispronunciation
-        clone_save_subfolders = MISPRONUNCIATION_FOLDER_MAPPING[mispronunciation]
+        # get type(s) of mispronunciation as subfolders
+        clone_save_subfolders = mispronunciation.get_folder_mapping()
         # audio & ground truth
         audio_extension = audio_extension[1:]  # remove the dot
         ground_truth_extension = "txt" if is_text_file_available else "srt"
@@ -695,6 +720,16 @@ def main(audio_file):
                 Bucket=BUCKET,
                 Key=f"{clone_save_prefix}/{job_name}.json",
             )
+
+        # log results to AirTable
+        mispronunciation.job_name = job_name
+        mispronunciation.language = folder_name
+        mispronunciation.audio_url = create_presigned_url(
+            BUCKET,
+            f"{clone_save_prefix}/{job_name}.{audio_extension}",
+            SIGNED_URL_TIMEOUT,
+        )
+        mispronunciation.log_to_airtable()
 
     # export JSON to respective folders in S3
     s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)
