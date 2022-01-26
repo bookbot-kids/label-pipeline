@@ -304,7 +304,7 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
 
     # find overlaps and mark as new sequence
     homophones = HOMOPHONES[language] if language in HOMOPHONES else None
-    aligned_transcripts, _ = match_sequence(transcripts, ground_truth, homophones)
+    aligned_transcripts, *_ = match_sequence(transcripts, ground_truth, homophones)
 
     for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
         # add a newly initialized pair of lists if new sequence is detected

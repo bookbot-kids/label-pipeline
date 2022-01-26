@@ -17,6 +17,7 @@ The high-level overview of this pipeline is shown below.
 # Structure
 
 ```bash
+.
 ├── README.md
 ├── images
 │   └── audio-labeling-pipeline.png
@@ -41,6 +42,7 @@ The high-level overview of this pipeline is shown below.
 │   ├── step_function_invoker
 │   │   └── test-event-1.json
 │   └── transcribe
+│       ├── mispronunciation_test.py
 │       ├── test-event-1.json
 │       ├── test-event-2.json
 │       ├── test-event-3.json

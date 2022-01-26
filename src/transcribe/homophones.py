@@ -1,4 +1,5 @@
 from difflib import SequenceMatcher
+from typing import List, Set
 
 """
 English Homophones: 
@@ -470,12 +471,12 @@ HOMOPHONES = {
 }
 
 
-def create_convert(*families):
+def create_convert(*families: List[Set[str]]):
     """Return a converter function that converts a list to the same list with only main words
 
     Parameters
     ----------
-    families : List[Set(str)]
+    families : List[Set[str]]
         List of homophone families.
 
     Returns
@@ -487,7 +488,7 @@ def create_convert(*families):
     return lambda L: [d.get(w, w) for w in L]
 
 
-def match_sequence(list1, list2, homophones):
+def match_sequence(list1: List[str], list2: List[str], homophones: List[Set[str]]):
     """Finds index of overlaps between two lists given a homophone mapping.
 
     Parameters
@@ -496,17 +497,18 @@ def match_sequence(list1, list2, homophones):
         List of words in a sequence.
     list2 : List[str]
         List of words in another sequence for matching/comparison.
-    homophones : List[Set(str)]
+    homophones : List[Set[str]]
         List of homophone families.
 
     Returns
     -------
-    List[List[int], List[int]]
+    Tuple[List[int], List[int], List[Tuple[str, int, int, int, int]]]
         Pair of lists containing list of indices of overlap.
     """
     convert = create_convert(*homophones)
     output1, output2 = [], []
     s = SequenceMatcher(None, convert(list1), convert(list2))
+    opcodes = s.get_opcodes()
     for block in s.get_matching_blocks():
         for i in range(block.size):
             output1.append(block.a + i)
@@ -514,4 +516,4 @@ def match_sequence(list1, list2, homophones):
 
     assert len(output1) == len(output2)
 
-    return [output1, output2]
+    return output1, output2, opcodes

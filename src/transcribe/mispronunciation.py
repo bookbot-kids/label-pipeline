@@ -46,6 +46,7 @@ class Mispronunciation:
         type: List[MispronunciationType],
         lists: Tuple[List[str], List[str]],
         differences: Tuple[List[str], List[str]],
+        opcodes: List[Tuple[str, int, int, int, int]],
     ):
         """Constructor for the `Mispronunciation` class.
 
@@ -64,9 +65,10 @@ class Mispronunciation:
         self.type = type
         self.lists = lists
         self.differences = differences
+        self.opcodes = opcodes
         self._folder_mapping = {
-            MispronunciationType.ADDITION: ["addition"],
-            MispronunciationType.SUBSTITUTION: ["substitution"],
+            MispronunciationType.ADDITION: "addition",
+            MispronunciationType.SUBSTITUTION: "substitution",
         }
 
     def get_folder_mapping(self) -> List[str]:
@@ -82,14 +84,41 @@ class Mispronunciation:
     def log_to_airtable(self):
         """Logs mispronunciation (`self`) to AirTable.
         """
+
+        def _pprint(list_: List) -> str:
+            if len(list_) == 0:
+                return " "
+            return ", ".join(list_)
+
+        def _get_changes(self: Mispronunciation) -> str:
+            ground_truth, transcript = self.lists
+            ground_truth_diff, transcript_diff = self.differences
+
+            if len(self.type) > 1:  # A & S
+                changes = [
+                    f"[{_pprint(ground_truth[j1:j2])} → {_pprint(transcript[i1:i2])}]"
+                    for tag, i1, i2, j1, j2 in self.opcodes
+                    if tag == "replace" or tag == "delete"
+                ]
+                return _pprint(changes)
+            elif self.type[0] == MispronunciationType.ADDITION:
+                return f"[{_pprint(ground_truth_diff)} → {_pprint(transcript_diff)}]"
+            else:  # S
+                substitutions = [
+                    f"[{ground_truth_diff[idx]} → {transcript_diff[idx]}]"
+                    for idx in range(len(transcript_diff))
+                ]
+                return _pprint(substitutions)
+
         fields = {
             "Job Name": self.job_name,
             "Audio": [{"url": self.audio_url}],
             "Language": self.language,
             "Ground Truth": " ".join(self.lists[0]),
             "Transcript": " ".join(self.lists[1]),
-            "Δ Ground Truth": str(self.differences[0]),
-            "Δ Transcript": str(self.differences[1]),
+            "Δ Ground Truth": _pprint(self.differences[0]),
+            "Δ Transcript": _pprint(self.differences[1]),
+            "Δ Changes": _get_changes(self),
             "Disfluency": [type.name for type in self.type],
         }
 
@@ -132,22 +161,8 @@ def remove_fillers(word):
 def detect_mispronunciation(ground_truth, transcript, homophones=None):
     """Detects if the pair of ground truth and transcript is considered as a mispronunciation.
     We define a mispronunciation to be either an addition (A) / substitution (S).
-    Ignores deletion (D), 100% match (M) and single-word GT (X).
+    Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
     Also handles homophones given a pre-defined list.
-
-    Examples:
-    ---------------------------------------------------------
-    |    Ground Truth    |       Transcript       | Verdict |
-    |--------------------|------------------------|---------|
-    | skel is a skeleton | skel is a skeleton     |    M    |
-    | skel is a skeleton | skel is not a skeleton |    A    |
-    | skel is a skeleton | skel is a zombie       |    S    |
-    | skel is a skeleton | skel is not a zombie   |   A&S   |
-    | skel is a skeleton | skel is skeleton       |    D    |
-    | skel is a skeleton | skel is zombie         |    D    |
-    | vain is a skeleton | vein is a skeleton     |    M    |
-    | skel               | skel is a skeleton     |    X    |
-    ---------------------------------------------------------
 
     Parameters
     ----------
@@ -162,6 +177,49 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     -------
     Mispronunciation
         Object of mispronunciation present. Otherwise, None.
+
+    Examples
+    -------------------------------------------------------------
+    | # | Ground Truth       | Transcript             | Verdict |
+    |:-:|--------------------|------------------------|:-------:|
+    | 1 | skel is a skeleton | skel is a skeleton     |    M    |
+    | 2 | skel is a skeleton | skel is not a skeleton |    A    |
+    | 3 | skel is a skeleton | skel is a zombie       |    S    |
+    | 4 | skel is a skeleton | skel is not a zombie   |  A & S  |
+    | 5 | skel is a skeleton | skel is skeleton       |    D    |
+    | 6 | skel is a skeleton | skel is zombie         |    D    |
+    | 7 | vain is a skeleton | vein is a skeleton     |    M    |
+    | 8 | skel               | skel is a skeleton     |    X    |
+    -------------------------------------------------------------
+
+    Algorithm
+    ----------
+    BASE CASES if:
+    - single-word ground truth
+    - empty transcript
+    - zero alignment
+
+    MATCH if:
+    - both residues are empty (100% match)
+
+    DELETION if:
+    - zero transcript residue, >1 ground truth residue 
+        - all spoken transcripts are correct, but some words are missing
+    - more residue in ground truth than in transcript
+        - less strict condition than above
+        - may possibly contain substitution, but could be minimal
+
+    ADDITION if:
+    - zero ground truth residue, >1 transcript residue
+        - all words in ground truth are perfectly spoken, but additional words are present
+
+    SUBSTITUTION if:
+    - same amounts of residue, at exact same positions
+        - strict form of substitution, only 1-1 changes per position
+
+    ADDITION & SUBSTITUTION if:
+    - more residue in transcript than in ground truth
+        - with at least 1 match
     """
     if homophones == None:
         homophones = HOMOPHONES["en"]
@@ -174,7 +232,12 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     tsc_idx = set(range(len(transcript)))
     gt_idx = set(range(len(ground_truth)))
 
-    aligned_tsc, aligned_gt = match_sequence(transcript, ground_truth, homophones)
+    aligned_tsc, aligned_gt, opcodes = match_sequence(
+        transcript, ground_truth, homophones
+    )
+
+    if len(aligned_tsc) == 0 and len(aligned_gt) == 0:
+        return None  # zero matches/alignments, pretty much random
 
     tsc_diff = tsc_idx.difference(aligned_tsc)
     gt_diff = gt_idx.difference(aligned_gt)
@@ -183,7 +246,7 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     gt_diff_words = [ground_truth[idx] for idx in gt_diff]
 
     mispronunciation = Mispronunciation(
-        None, (ground_truth, transcript), (gt_diff_words, tsc_diff_words),
+        None, (ground_truth, transcript), (gt_diff_words, tsc_diff_words), opcodes
     )
 
     if len(gt_diff) == 0 and len(tsc_diff) == 0:
@@ -193,56 +256,17 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     elif len(gt_diff) == 0 and len(tsc_diff) > 0:
         mispronunciation.type = [MispronunciationType.ADDITION]
         return mispronunciation  # addition only
-    elif len(tsc_diff) == len(gt_diff):
+    elif len(tsc_diff) == len(gt_diff) and tsc_diff == gt_diff:
         mispronunciation.type = [MispronunciationType.SUBSTITUTION]
-        return mispronunciation  # substitution only
-    elif len(tsc_diff) > len(gt_diff):
+        return mispronunciation  # strict substitution only
+    elif len(tsc_diff) >= len(gt_diff):
         mispronunciation.type = [
             MispronunciationType.ADDITION,
             MispronunciationType.SUBSTITUTION,
         ]
         return mispronunciation  # addition & substitution
     else:
+        # in cases where there is less spoken words (transcript) compared to GT,
+        # we assume that there is mostly deletion, although it may possibly contain substitutions.
+        # we think, the transcript thus contain little to no information that may be useful for training.
         return None
-
-
-def main():
-    cases = [
-        ("skel is a skeleton", "skel is a skeleton", None),
-        (
-            "skel is a skeleton",
-            "skel is not a skeleton",
-            [MispronunciationType.ADDITION],
-        ),
-        ("skel is a skeleton", "skel is a zombie", [MispronunciationType.SUBSTITUTION]),
-        (
-            "skel is a skeleton",
-            "skel is not a zombie",
-            [MispronunciationType.ADDITION, MispronunciationType.SUBSTITUTION],
-        ),
-        ("skel is a skeleton", "skel is skeleton", None),
-        ("skel is a skeleton", "skel is zombie", None),
-        ("vain is a skeleton", "vein is a skeleton", None),
-        ("skel is a skeleton", "skel is uh a skeleton", None),
-        ("skel", "skel is a skeleton", None),
-    ]
-
-    for case in cases[1:2]:
-        gt, tsc, verdict = case
-        gt = gt.split()
-        tsc = tsc.split()
-
-        prediction = detect_mispronunciation(gt, tsc)
-        url = "https://bookbot-speech.s3.ap-southeast-1.amazonaws.com/mispronunciations/addition/en-id/5b12d49c-e421-4c9b-9ee8-ad0469d69022_1637798323388.aac?response-content-disposition=inline&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEF0aDmFwLXNvdXRoZWFzdC0xIkgwRgIhALfaWUpZNe2G3BnVtJW7d0oXPph1C55HAa4vRKKbXnIBAiEA15DRoiL1Mfw%2B%2BGSO88m4Q4ZaBj26hu59EJhO12CA7psqkgMIhv%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgwyODMwMzE4NTgzMTYiDGN3w2OkHgoZn8pBCSrmAg0zQ%2B%2FLxZteM6RKDZrRrtMX8uyks6o6tL19KnP%2FDPDV45A9i07BkdJVsD91JlZNxKFcug9f8bgs8S7mya04UfGw%2FB8SQUCqiEwxIGmesXJSY6gxXirTFBUendIkBESNfuqvBWh%2BFUj%2BaligsGUROTRotbHEgrkDOTHbVLVHkyUwBuEj8WZjUh99QrpMKzh2zv8Vh5DYo3M8aRn8DOnlAkwb%2FM0svEWqag0hek%2B4LxL8KVoOEbc3ZBXSMT3MkF1c4snFO6vEbJVdQA%2BYDphSSmCA3TW8I5U4ml0kcWYbkewit1r7wzDJ0sMRmLBrhckvJ3bAlDScx%2BuTHVhOampTB2QgGTor5XaFSNwZ221zpxjefVmPZsC9RXzLcSH5E%2BXnVJW0BUeXhl8ucF%2FKxbrkzKuEERaPsUw%2FxVmsUI%2FidEtMBzGAdKRQeOdzpW47C9qG3eDZnjRQv%2BOh6WlxwBKSiUkbub5Eencw%2BP29jwY6sgJa7tU3lduukHSZmIHKI1FhLcNc%2BvViyebFHAC0owb4C0ZY%2B2GX%2FUVwbON%2Bb0RjKoQ1tqYiQIhft3gxYC97HCh%2BgZmJ50H%2F0dnuR4GtiguYQeI0%2BDl3fqGeJyiVZ%2BNkOpUvgdpe0GkbmL4fP9yT7KlGrom9KyoZmfVyrL78yLkx%2BudrTh9D%2B22njylWRECabdBksXQGuHl2kIS%2Bq2LSAwPzYwgV9O1h7rDuiaw0rS15A2d%2FkjfZ5LpO7rJPT8ztBE3l51QjFQKvdKn2gNKXzOzQCk7dhM9SSElHUkAqqwwzvMg1v%2FUaEccn7MgO7Y4II5KEZn2dzyz4a0T1%2B%2BGC3KycRkHR4XdapVPJrgvr6NsbLF%2B9edM8nSjk1LAN0PwEVIc7SF6BQCiQsrWZU094yB3E2YI%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20220125T105619Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Credential=ASIAUDZQDNSGFJH3TJXT%2F20220125%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Signature=3bbff872f9dd992d512bfdd05222788df01344112c239a529ff14ac6b297ca54"
-
-        if prediction:
-            prediction.audio_url = url
-            prediction.log_to_airtable()
-            prediction = prediction.type
-
-        assert prediction == verdict
-
-
-if __name__ == "__main__":
-    main()
-
