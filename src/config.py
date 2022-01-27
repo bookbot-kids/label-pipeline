@@ -35,3 +35,6 @@ LANGUAGE_CODES = [
     "en-NZ",
     "id-ID",
 ]
+
+# File extensions
+EXTENSIONS = ["txt", "srt", "json", "aac", "wav", "m4a"]
