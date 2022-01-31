@@ -20,7 +20,7 @@ BUCKET = "bookbot-speech"
 REGION = "ap-southeast-1"
 
 # Maximum URL timeout for AWS S3
-SIGNED_URL_TIMEOUT = 300
+SIGNED_URL_TIMEOUT = 3600
 
 # Language codes accepted for AWS Transcribe
 LANGUAGE_CODES = [

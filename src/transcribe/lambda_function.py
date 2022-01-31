@@ -605,6 +605,7 @@ def main(audio_file):
     EXT2FORMAT = {".wav": "wav", ".m4a": "mp4", ".aac": "mp4"}
     job_name, audio_extension = os.path.splitext(os.path.basename(audio_file))
     folder_name = os.path.basename(os.path.dirname(audio_file))
+    # parent_folder = os.path.basename(os.path.split(os.path.dirname(audio_file))[0])
     language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
 
@@ -615,8 +616,6 @@ def main(audio_file):
         media_format=EXT2FORMAT[audio_extension],
         language_code=language_code,
     )
-
-    # is_from_youtube = folder_name.split("-")[1] == "youtube"
 
     transcribed_text = task["predictions"][0]["result"][0]["value"]["text"][0]
     ground_truth = ""
