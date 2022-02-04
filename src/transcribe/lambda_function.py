@@ -309,6 +309,14 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
     for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
         # add a newly initialized pair of lists if new sequence is detected
         seq = list(map(itemgetter(1), g))
+
+        # first and last element of the sequence
+        first, last = seq[0], seq[-1]
+
+        # in case it overlaps only on punctuations, then skip
+        if "start_time" not in results["items"][first]:
+            continue
+
         output = output + init_label_studio_annotation()
 
         idx = sentence_counter * 3
@@ -325,9 +333,6 @@ def overlapping_segments(results, ground_truth, language, max_repeats=None):
         text_values = text_dict["value"]
         label_values = label_dict["value"]
         ground_truth_values = ground_truth_dict["value"]
-
-        # first and last element of the sequence
-        first, last = seq[0], seq[-1]
 
         # start time is at the first word of the sequence
         # end time is at the last word of the sequence
