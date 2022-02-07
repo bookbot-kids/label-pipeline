@@ -14,7 +14,6 @@ from math import ceil
 from homophones import HOMOPHONES, match_sequence
 from mispronunciation import detect_mispronunciation
 from srt2txt import srt2txt
-from airtable_logger import AirTableLogger
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -671,14 +670,6 @@ def main(audio_file):
                 task["predictions"][0]["result"] += overlapping_segments(
                     results, ground_truth, language, max_repeats=3
                 )
-
-        logger = AirTableLogger(job_name, ground_truth, results, folder_name)
-        logger.audio_url = create_presigned_url(
-            BUCKET,
-            f"dropbox/{folder_name}/{job_name}.{audio_extension[1:]}",
-            SIGNED_URL_TIMEOUT,
-        )
-        logger.log_to_airtable()
 
     # add ground truth to Label Studio JSON-annotated task (for reference)
     task["data"]["text"] = ground_truth
