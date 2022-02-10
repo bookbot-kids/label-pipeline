@@ -53,20 +53,31 @@ class AirTableS3Integration:
     def process_table_data(self):
         """Gets AirTable data and applies annotation changes to S3 and finalizes the record.
         """
-        try:
-            response = requests.get(
-                f"{self.airtable_url}&{self.filter_formula}", headers=self.headers
-            )
-        except Exception as exc:
-            print(exc)
-        else:
-            if response.ok:
-                records = response.json()["records"]
-                for record in records:
-                    self._apply_annotation_changes_s3(record)
-                    self._patch_record(self._finalize_record(record))
+        records, offset = [], 0
+        while True:
+            try:
+                response = requests.get(
+                    f"{self.airtable_url}&{self.filter_formula}",
+                    params={"offset": offset},
+                    headers=self.headers,
+                )
+            except Exception as exc:
+                print(exc)
             else:
-                print("Failed to get data from AirTable")
+                if response.ok:
+                    response = response.json()
+                    records += response["records"]
+
+                    if "offset" in response:
+                        offset = response["offset"]
+                    else:
+                        break
+                else:
+                    print("Failed to get data from AirTable")
+
+        for record in records:
+            # self._apply_annotation_changes_s3(record)
+            self._patch_record(self._finalize_record(record))
 
     def _patch_record(self, payload: str):
         """Patches `payload` to `self.airtable_url` with authorized `self.headers`.
