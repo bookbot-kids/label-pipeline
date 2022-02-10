@@ -103,6 +103,13 @@ def split_export_audio(annotations, annotation_key, audio_file, bucket, key_pref
                     Body=values["text"][0], Bucket=bucket, Key=f"{save_path}.txt"
                 )
 
+                # export audio segment for categorization
+                s3_client.put_object(
+                    Body=stdout,
+                    Bucket=bucket,
+                    Key=f"categorisation/raw/{key_prefix}-{idx}.wav",
+                )
+
                 # log to AirTable
                 audio_url = create_presigned_url(bucket, f"{save_path}.wav")
 
