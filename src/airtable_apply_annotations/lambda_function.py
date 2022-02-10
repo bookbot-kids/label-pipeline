@@ -25,6 +25,14 @@ def main():
     )
     audio_dashboard_table.process_table_data()
 
+    youtube_audio_dashboard_table_url = (
+        "https://api.airtable.com/v0/appZzNIP8ZTitJIiE/Master?view=Master"
+    )
+    youtube_audio_dashboard_table_url = AudioDashboardTable(
+        youtube_audio_dashboard_table_url, filter_formula, headers
+    )
+    youtube_audio_dashboard_table_url.process_table_data()
+
 
 def lambda_handler(event, context):
     """Event listener for S3 event and calls the daily logger function.

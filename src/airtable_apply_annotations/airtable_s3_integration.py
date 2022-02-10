@@ -76,7 +76,7 @@ class AirTableS3Integration:
                     print("Failed to get data from AirTable")
 
         for record in records:
-            # self._apply_annotation_changes_s3(record)
+            self._apply_annotation_changes_s3(record)
             self._patch_record(self._finalize_record(record))
 
     def _patch_record(self, payload: str):

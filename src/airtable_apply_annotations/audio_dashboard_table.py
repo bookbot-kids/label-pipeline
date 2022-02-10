@@ -28,7 +28,7 @@ class AudioDashboardTable(AirTableS3Integration):
     _apply_annotation_changes_s3(record: Dict[str, Any]) -> None:
         Applies changes in an S3 directory based on an AirTable `record`'s category verdict.
     _finalize_record(record: Dict[str, Any]) -> None:
-        Finalizes a disfluency record by marking "AWS" column as `True`.
+        Finalizes an audio record by marking "AWS" column as `True`.
     """
 
     def __init__(self, airtable_url: str, filter_formula: str, headers: Dict[str, str]):
@@ -46,7 +46,7 @@ class AudioDashboardTable(AirTableS3Integration):
         super().__init__(airtable_url, filter_formula, headers)
 
     def _apply_annotation_changes_s3(self, record: Dict[str, Any]):
-        """Applies changes in an S3 directory based on an AirTable `record`'s disfluency verdict.
+        """Applies changes in an S3 directory based on an AirTable `record`'s category verdict.
 
         Parameters
         ----------
