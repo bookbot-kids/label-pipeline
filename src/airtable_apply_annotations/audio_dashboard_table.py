@@ -1,5 +1,5 @@
 from airtable_s3_integration import AirTableS3Integration
-from s3_utils import move_file, write_file
+from s3_utils import move_file, write_file, delete_file
 from typing import Dict, Any
 import json
 
@@ -62,8 +62,11 @@ class AudioDashboardTable(AirTableS3Integration):
         source_path = f"categorisation/raw/{language}"
         save_path = f"categorisation/{category}/{language}"
 
-        move_file(self.bucket, audio_filename, source_path, save_path)
-        write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
+        if category == "delete":
+            delete_file(self.bucket, audio_filename, source_path)
+        else:
+            move_file(self.bucket, audio_filename, source_path, save_path)
+            write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
 
     def _finalize_record(self, record: Dict[str, Any]):
         """Finalizes an audio record by marking "AWS" column as `True`.
