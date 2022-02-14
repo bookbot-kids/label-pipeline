@@ -9,6 +9,7 @@ import requests
 class MispronunciationType(Enum):
     ADDITION = auto()
     SUBSTITUTION = auto()
+    ADDITION_SUBSTITUTION = auto()
 
 
 class Mispronunciation:
@@ -24,26 +25,22 @@ class Mispronunciation:
         URL to audio file.
     language : str
         Language of audio.
-    type : List[MispronunciationType]
-        Type(s) of mispronunciation/disfluency present.
+    type : MispronunciationType
+        Type of mispronunciation/disfluency present.
     lists : Tuple[List[str], List[str]]
         Input list of strings taken for comparison.
     differences : Tuple[List[str], List[str]]
         Differences of list of strings that resulted in the type verdict.
-    _folder_mapping : Dict[MispronunciationType, List[str]]
-        Mapping of mispronunciation type present to list of folder names.
 
     Methods
     -------
-    get_folder_mapping() -> List[str]:
-        Returns the list of folder mapping result.
     log_to_airtable() -> None:
         Logs mispronunciation to AirTable.
     """
 
     def __init__(
         self,
-        type: List[MispronunciationType],
+        type: MispronunciationType,
         lists: Tuple[List[str], List[str]],
         differences: Tuple[List[str], List[str]],
         opcodes: List[Tuple[str, int, int, int, int]],
@@ -52,8 +49,8 @@ class Mispronunciation:
 
         Parameters
         ----------
-        type : List[MispronunciationType]
-            Type(s) of mispronunciation/disfluency present.
+        type : MispronunciationType
+            Type of mispronunciation/disfluency present.
         lists : Tuple[List[str], List[str]]
             Input list of strings taken for comparison.
         differences : Tuple[List[str], List[str]]
@@ -66,20 +63,6 @@ class Mispronunciation:
         self.lists = lists
         self.differences = differences
         self.opcodes = opcodes
-        self._folder_mapping = {
-            MispronunciationType.ADDITION: "addition",
-            MispronunciationType.SUBSTITUTION: "substitution",
-        }
-
-    def get_folder_mapping(self) -> List[str]:
-        """Maps mispronunciation type present to the list of strings as foldernames.
-
-        Returns
-        -------
-        List[str]
-            List of string names of subfolders for saving.
-        """
-        return [self._folder_mapping[t] for t in self.type]
 
     def log_to_airtable(self):
         """Logs mispronunciation (`self`) to AirTable.
@@ -94,14 +77,14 @@ class Mispronunciation:
             ground_truth, transcript = self.lists
             ground_truth_diff, transcript_diff = self.differences
 
-            if len(self.type) > 1:  # A & S
+            if self.type == MispronunciationType.ADDITION_SUBSTITUTION:  # A & S
                 changes = [
                     f"[{_pprint(ground_truth[j1:j2])} → {_pprint(transcript[i1:i2])}]"
                     for tag, i1, i2, j1, j2 in self.opcodes
                     if tag == "replace" or tag == "delete"
                 ]
                 return _pprint(changes)
-            elif self.type[0] == MispronunciationType.ADDITION:
+            elif self.type == MispronunciationType.ADDITION:  # A
                 return f"[{_pprint(ground_truth_diff)} → {_pprint(transcript_diff)}]"
             else:  # S
                 substitutions = [
@@ -119,7 +102,7 @@ class Mispronunciation:
             "Δ Ground Truth": _pprint(self.differences[0]),
             "Δ Transcript": _pprint(self.differences[1]),
             "Δ Changes": _get_changes(self),
-            "Disfluency": [type.name for type in self.type],
+            "Disfluency": self.type.name,
         }
 
         airtable_url = "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master"
@@ -254,16 +237,13 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
     elif len(gt_diff) > 0 and len(tsc_diff) == 0:
         return None  # deletion only
     elif len(gt_diff) == 0 and len(tsc_diff) > 0:
-        mispronunciation.type = [MispronunciationType.ADDITION]
+        mispronunciation.type = MispronunciationType.ADDITION
         return mispronunciation  # addition only
     elif len(tsc_diff) == len(gt_diff) and tsc_diff == gt_diff:
-        mispronunciation.type = [MispronunciationType.SUBSTITUTION]
+        mispronunciation.type = MispronunciationType.SUBSTITUTION
         return mispronunciation  # strict substitution only
     elif len(tsc_diff) >= len(gt_diff):
-        mispronunciation.type = [
-            MispronunciationType.ADDITION,
-            MispronunciationType.SUBSTITUTION,
-        ]
+        mispronunciation.type = MispronunciationType.ADDITION_SUBSTITUTION
         return mispronunciation  # addition & substitution
     else:
         # in cases where there is less spoken words (transcript) compared to GT,

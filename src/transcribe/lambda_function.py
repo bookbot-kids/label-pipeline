@@ -699,38 +699,23 @@ def main(audio_file):
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
 
     if mispronunciation:
-        # get type(s) of mispronunciation as subfolders
-        clone_save_subfolders = mispronunciation.get_folder_mapping()
-        # audio & ground truth
+        # audio
         audio_extension = audio_extension[1:]  # remove the dot
-        ground_truth_extension = "txt" if is_text_file_available else "srt"
 
-        # save as addition, substitution, or both
-        for subfolder in clone_save_subfolders:
-            # copy triplets of audio-transcript-ground truth to a separate folder for inspection
-            clone_save_prefix = f"mispronunciations/{subfolder}/{folder_name}"
-
-            for ext in [audio_extension, ground_truth_extension]:
-                copy_file(
-                    BUCKET,
-                    f"{job_name}.{ext}",
-                    f"dropbox/{folder_name}",
-                    clone_save_prefix,
-                )
-
-            # transcript
-            s3_client.put_object(
-                Body=json.dumps(task),
-                Bucket=BUCKET,
-                Key=f"{clone_save_prefix}/{job_name}.json",
-            )
+        # copy audio to a separate folder for annotation
+        copy_file(
+            BUCKET,
+            f"{job_name}.{audio_extension}",
+            f"dropbox/{folder_name}",
+            f"mispronunciations/raw/{folder_name}",
+        )
 
         # log results to AirTable
         mispronunciation.job_name = job_name
         mispronunciation.language = folder_name
         mispronunciation.audio_url = create_presigned_url(
             BUCKET,
-            f"{clone_save_prefix}/{job_name}.{audio_extension}",
+            f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
             SIGNED_URL_TIMEOUT,
         )
         mispronunciation.log_to_airtable()
