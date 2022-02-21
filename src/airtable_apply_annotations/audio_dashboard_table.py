@@ -1,6 +1,6 @@
 from airtable_s3_integration import AirTableS3Integration
 from s3_utils import move_file, write_file, delete_file
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
 
 
@@ -27,8 +27,8 @@ class AudioDashboardTable(AirTableS3Integration):
         Gets AudioDashboardTable data and applies annotation changes to S3 and finalizes the record.
     _apply_annotation_changes_s3(record: Dict[str, Any]) -> None:
         Applies changes in an S3 directory based on an AirTable `record`'s category verdict.
-    _finalize_record(record: Dict[str, Any]) -> None:
-        Finalizes an audio record by marking "AWS" column as `True`.
+    _finalize_records(records: List[Dict[str, Any]]) -> None:
+        Finalizes audio records by marking "AWS" column as `True`.
     """
 
     def __init__(self, airtable_url: str, filter_formula: str, headers: Dict[str, str]):
@@ -68,15 +68,19 @@ class AudioDashboardTable(AirTableS3Integration):
             move_file(self.bucket, audio_filename, source_path, save_path)
             write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
 
-    def _finalize_record(self, record: Dict[str, Any]):
-        """Finalizes an audio record by marking "AWS" column as `True`.
+    def _finalize_records(self, records: List[Dict[str, Any]]):
+        """Finalizes audio records by marking "AWS" column as `True`.
 
         Parameters
         ----------
-        record : Dict[str, Any]
-            An AirTable record.
+        records : List[Dict[str, Any]]
+            AirTable records.
         """
         payload = json.dumps(
-            {"records": [{"id": record["id"], "fields": {"AWS": True}}]}
+            {
+                "records": [
+                    {"id": record["id"], "fields": {"AWS": True}} for record in records
+                ]
+            }
         )
         return payload

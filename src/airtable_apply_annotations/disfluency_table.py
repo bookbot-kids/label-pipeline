@@ -27,8 +27,8 @@ class DisfluencyTable(AirTableS3Integration):
         Gets DisfluencyTable data and applies annotation changes to S3 and finalizes the record.
     _apply_annotation_changes_s3(record: Dict[str, Any]) -> None:
         Applies changes in an S3 directory based on an AirTable `record`'s disfluency verdict.
-    _finalize_record(record: Dict[str, Any]) -> None:
-        Finalizes a disfluency record by marking "AWS" column as `True`.
+    _finalize_records(records: List[Dict[str, Any]]) -> None:
+        Finalizes disfluency records by marking "AWS" column as `True`.
     """
 
     def __init__(self, airtable_url: str, filter_formula: str, headers: Dict[str, str]):
@@ -68,15 +68,19 @@ class DisfluencyTable(AirTableS3Integration):
             move_file(self.bucket, audio_filename, source_path, save_path)
             write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
 
-    def _finalize_record(self, record: Dict[str, Any]):
-        """Finalizes a disfluency record by marking "AWS" column as `True`.
+    def _finalize_records(self, records: List[Dict[str, Any]]):
+        """Finalizes disfluency records by marking "AWS" column as `True`.
 
         Parameters
         ----------
-        record : Dict[str, Any]
-            An AirTable record.
+        records : List[Dict[str, Any]]
+            AirTable records.
         """
         payload = json.dumps(
-            {"records": [{"id": record["id"], "fields": {"AWS": True}}]}
+            {
+                "records": [
+                    {"id": record["id"], "fields": {"AWS": True}} for record in records
+                ]
+            }
         )
         return payload

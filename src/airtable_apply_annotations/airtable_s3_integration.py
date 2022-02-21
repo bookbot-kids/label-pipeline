@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 import requests
 from config import BUCKET, EXTENSIONS
 
@@ -28,8 +28,8 @@ class AirTableS3Integration:
         Patches `payload` to `self.airtable_url` with authorized `self.headers`.
     _apply_annotation_changes_s3(record: Dict[str, Any]) -> None:
         Applies changes in an S3 directory based on an AirTable `record`'s annotation verdict.
-    _finalize_record(record: Dict[str, Any]) -> None:
-        Finalizes a record by marking "AWS" column as `True` and optionally other changes.
+    _finalize_records(records: List[Dict[str, Any]]) -> None:
+        Finalizes records by marking "AWS" column as `True` and optionally other changes.
     """
 
     def __init__(self, airtable_url: str, filter_formula: str, headers: Dict[str, str]):
@@ -75,9 +75,12 @@ class AirTableS3Integration:
                 else:
                     print("Failed to get data from AirTable")
 
-        for record in records:
-            self._apply_annotation_changes_s3(record)
-            self._patch_record(self._finalize_record(record))
+        # batch size: 10
+        for i in range(0, len(records), 10):
+            batch = records[i : i + 10]
+            for record in batch:
+                self._apply_annotation_changes_s3(record)
+            self._patch_record(self._finalize_records(batch))
 
     def _patch_record(self, payload: str):
         """Patches `payload` to `self.airtable_url` with authorized `self.headers`.
@@ -109,13 +112,13 @@ class AirTableS3Integration:
         """
         pass
 
-    def _finalize_record(self, record: Dict[str, Any]) -> str:
-        """Finalizes a record by marking "AWS" column as `True`.
+    def _finalize_records(self, records: List[Dict[str, Any]]) -> str:
+        """Finalizes records by marking "AWS" column as `True`.
 
         Parameters
         ----------
-        record : Dict[str, Any]
-            An AirTable record.
+        records : List[Dict[str, Any]]
+            AirTable records.
 
         Returns
         -------
