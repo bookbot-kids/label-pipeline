@@ -95,9 +95,9 @@ class AirTableS3Integration:
             print(exc)
         else:
             if response.ok:
-                print("Successfully patched to AirTable")
+                return
             else:
-                print("Failed to patch to AirTable")
+                print(f"Failed to patch {payload}")
 
     def _apply_annotation_changes_s3(self, record: Dict[str, Any]):
         """Applies changes in an S3 directory based on an AirTable `record`'s annotation verdict.

@@ -71,10 +71,13 @@ def move_file(bucket: str, file: str, source: str, destination: str):
             CopySource=f"{bucket}/{source}/{file}"
         )
         s3_resource.Object(bucket, f"{source}/{file}").delete()
-        print(
-            f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
-        )
+        # print(
+        #     f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+        # )
     except ClientError as exc:
+        print(
+            f"Failed to move file {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+        )
         print(exc)
 
 
@@ -92,9 +95,10 @@ def delete_file(bucket: str, file: str, source: str):
     """
     try:
         s3_resource.Object(bucket, f"{source}/{file}").delete()
-        print(f"Deleted file from {bucket}/{source}/{file}")
+        # print(f"Deleted file from {bucket}/{source}/{file}")
     except ClientError as exc:
-        return
+        print(f"Failed to delete {bucket}/{source}/{file}")
+        print(exc)
 
 
 def bulk_s3_actions(
