@@ -112,6 +112,10 @@ def lambda_handler(event, context) -> str:
     try:
         audio_url = json.loads(event["body"])["audio_url"]
         audio = get_audio_file(audio_url)
+        audio_array = read_audio_as_array(audio)
+        if audio_array.size == 0:
+            print(f"Audio {audio_url} is empty.")
+            raise Exception
     except Exception as exc:
         response = {
             "statusCode": 400,
@@ -119,7 +123,6 @@ def lambda_handler(event, context) -> str:
         }
         return json.dumps(response)
     else:
-        audio_array = read_audio_as_array(audio)
         processed_audio = preprocess(audio_array)
 
         onnx_model_path = "/opt/wav2vec2-adult-child-cls-v2.quant.onnx"
@@ -131,7 +134,7 @@ def lambda_handler(event, context) -> str:
 
 if __name__ == "__main__":
     payload = {
-        "audio_url": "s3://bookbot-speech/archive/en-au/8f0ff133-0a55-49e1-ae4f-7be88d429d83_1643700265881.aac"
+        "audio_url": "s3://bookbot-speech/archive/en-us/0b41400a-4622-436e-93ed-7b495c653345_1631837099830.aac"
     }
     event = {"body": json.dumps(payload)}
     response = lambda_handler(event, None)
