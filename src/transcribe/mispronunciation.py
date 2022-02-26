@@ -27,6 +27,8 @@ class Mispronunciation:
         Language of audio.
     type : MispronunciationType
         Type of mispronunciation/disfluency present.
+    speaker_type : str
+        Speaker type, either adult/child.
     lists : Tuple[List[str], List[str]]
         Input list of strings taken for comparison.
     differences : Tuple[List[str], List[str]]
@@ -59,6 +61,7 @@ class Mispronunciation:
         self.job_name = None
         self.audio_url = None
         self.language = None
+        self.speaker_type = None
         self.type = type
         self.lists = lists
         self.differences = differences
@@ -103,6 +106,7 @@ class Mispronunciation:
             "Δ Transcript": _pprint(self.differences[1]),
             "Δ Changes": _get_changes(self),
             "Disfluency": self.type.name,
+            "Speaker Type": self.speaker_type,
         }
 
         airtable_url = "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master"

@@ -14,6 +14,7 @@ from math import ceil
 from homophones import HOMOPHONES, match_sequence
 from mispronunciation import detect_mispronunciation
 from srt2txt import srt2txt
+from classifier import SpeakerClassifier
 
 transcribe_client = boto3.client("transcribe", region_name=REGION)
 s3_client = boto3.client("s3")
@@ -713,6 +714,7 @@ def main(audio_file):
         # log results to AirTable
         mispronunciation.job_name = job_name
         mispronunciation.language = folder_name
+        mispronunciation.speaker_type = SpeakerClassifier(audio_file).predict()
         mispronunciation.audio_url = create_presigned_url(
             BUCKET,
             f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
