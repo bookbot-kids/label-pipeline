@@ -81,7 +81,6 @@ def predict(audio_array: np.ndarray, onnx_model_path: str) -> str:
     ort_inputs = {ort_session.get_inputs()[0].name: audio_array}
     ort_outs = ort_session.run(None, ort_inputs)
     logits = ort_outs[0]
-    print(f"Logits: {logits}")
     predicted_idx = np.argmax(logits)
 
     id2label = {
@@ -91,7 +90,7 @@ def predict(audio_array: np.ndarray, onnx_model_path: str) -> str:
 
     prediction = id2label[predicted_idx]
 
-    return prediction
+    return {"prediction": prediction, "logits": logits.tolist()[0]}
 
 
 def lambda_handler(event, context) -> str:
@@ -125,16 +124,17 @@ def lambda_handler(event, context) -> str:
     else:
         processed_audio = preprocess(audio_array)
 
-        onnx_model_path = "/opt/wav2vec2-adult-child-cls-v2.quant.onnx"
-        prediction = predict(processed_audio, onnx_model_path)
+        # onnx_model_path = "/opt/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
+        onnx_model_path = "../../models/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
+        results = predict(processed_audio, onnx_model_path)
 
-        response = {"statusCode": 200, "body": {"prediction": prediction}}
+        response = {"statusCode": 200, "body": results}
         return json.dumps(response)
 
 
 if __name__ == "__main__":
     payload = {
-        "audio_url": "s3://bookbot-speech/archive/en-us/0b41400a-4622-436e-93ed-7b495c653345_1631837099830.aac"
+        "audio_url": "s3://bookbot-speech/archive/en-au/381ed48d-0d1f-4f73-91d4-38c960d162fa_1645734280599.aac"
     }
     event = {"body": json.dumps(payload)}
     response = lambda_handler(event, None)

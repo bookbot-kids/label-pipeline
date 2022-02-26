@@ -87,15 +87,15 @@ def test_onnx_model(
     ort_inputs = {ort_session.get_inputs()[0].name: to_numpy(dummy_input)}
     ort_outs = ort_session.run(None, ort_inputs)
 
-    rtol = 1e-02 if quantized else 1e-03
+    rtol = 1e-01 if quantized else 1e-03
 
     np.testing.assert_allclose(
         to_numpy(dummy_output), ort_outs[0], rtol=rtol, atol=1e-05
     )
 
 
-if __name__ == "__main__":
-    model_checkpoint = "w11wo/wav2vec2-adult-child-cls-v2"
+def main():
+    model_checkpoint = "bookbot/distil-wav2vec2-adult-child-cls-52m"
     onnx_model_name = model_checkpoint.split("/")[-1] + ".onnx"
     quantized_model_name = model_checkpoint.split("/")[-1] + ".quant.onnx"
 
@@ -116,3 +116,7 @@ if __name__ == "__main__":
     # quantize model
     quantize_onnx_model(onnx_model_name, quantized_model_name)
     test_onnx_model(quantized_model_name, dummy_input, output_tensor, quantized=True)
+
+
+if __name__ == "__main__":
+    main()
