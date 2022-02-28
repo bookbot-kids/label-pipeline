@@ -16,7 +16,7 @@ This repository hosts the necessary AWS Lambda scripts to facilitate an automate
 
 The high-level overview of this pipeline is shown below.
 
-![](./images/audio-labeling-pipeline-v2.png)
+![](./images/audio-labeling-pipeline.png)
 
 # Structure
 
@@ -24,7 +24,6 @@ The high-level overview of this pipeline is shown below.
 .
 ├── README.md
 ├── images
-│   ├── audio-labeling-pipeline-v2.png
 │   └── audio-labeling-pipeline.png
 ├── requirements.txt
 ├── src
@@ -45,6 +44,7 @@ The high-level overview of this pipeline is shown below.
 │   ├── step_function_invoker
 │   │   └── lambda_function.py
 │   ├── transcribe
+│   │   ├── classifier.py
 │   │   ├── homophones.py
 │   │   ├── lambda_function.py
 │   │   ├── mispronunciation.py
