@@ -154,8 +154,9 @@ def main(audio_file: str):
     audio_file : str
         Audio filename with complete S3 path.
     """
-    EXT2FORMAT = {".wav": "wav", ".m4a": "mp4", ".aac": "mp4"}
+    EXT2FORMAT = {"wav": "wav", "m4a": "mp4", "aac": "mp4"}
     job_name, audio_extension = os.path.splitext(os.path.basename(audio_file))
+    audio_extension = audio_extension[1:]
     folder_name = os.path.basename(os.path.dirname(audio_file))
     language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
@@ -166,7 +167,7 @@ def main(audio_file: str):
     speaker_type = SpeakerClassifier(audio_file).predict()
     if speaker_type == "ADULT":
         print("Adult audio detected. Archiving audio.")
-        for ext in [audio_extension[1:], ground_truth_ext]:
+        for ext in [audio_extension, ground_truth_ext]:
             move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
@@ -202,7 +203,7 @@ def main(audio_file: str):
         # archive Transcribe-failed annotations
         save_path = f"archive/{folder_name}/{job_name}.json"
         # move audios to `archive`
-        for ext in [audio_extension[1:], ground_truth_ext]:
+        for ext in [audio_extension, ground_truth_ext]:
             move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
@@ -217,7 +218,7 @@ def main(audio_file: str):
         # copy audio to a separate folder for annotation
         copy_file(
             BUCKET,
-            f"{job_name}{audio_extension[1:]}",
+            f"{job_name}.{audio_extension}",
             f"dropbox/{folder_name}",
             f"mispronunciations/raw/{folder_name}",
         )
@@ -227,7 +228,7 @@ def main(audio_file: str):
         mispronunciation.language = folder_name
         mispronunciation.audio_url = create_presigned_url(
             BUCKET,
-            f"mispronunciations/raw/{folder_name}/{job_name}{audio_extension[1:]}",
+            f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
             SIGNED_URL_TIMEOUT,
         )
         mispronunciation.log_to_airtable()
