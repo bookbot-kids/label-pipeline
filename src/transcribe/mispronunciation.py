@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Set, Tuple
 from homophones import HOMOPHONES, match_sequence
 from enum import Enum, auto
 import os
@@ -27,8 +27,6 @@ class Mispronunciation:
         Language of audio.
     type : MispronunciationType
         Type of mispronunciation/disfluency present.
-    speaker_type : str
-        Speaker type, either adult/child.
     lists : Tuple[List[str], List[str]]
         Input list of strings taken for comparison.
     differences : Tuple[List[str], List[str]]
@@ -61,7 +59,6 @@ class Mispronunciation:
         self.job_name = None
         self.audio_url = None
         self.language = None
-        self.speaker_type = None
         self.type = type
         self.lists = lists
         self.differences = differences
@@ -106,7 +103,6 @@ class Mispronunciation:
             "Δ Transcript": _pprint(self.differences[1]),
             "Δ Changes": _get_changes(self),
             "Disfluency": self.type.name,
-            "Speaker Type": self.speaker_type,
         }
 
         airtable_url = "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master"
@@ -128,7 +124,7 @@ class Mispronunciation:
                 print("Failed to log to AirTable")
 
 
-def remove_fillers(word):
+def remove_fillers(word: str) -> bool:
     """Manually checks if a word is a filler word
 
     Parameters
@@ -145,7 +141,9 @@ def remove_fillers(word):
     return word not in fillers
 
 
-def detect_mispronunciation(ground_truth, transcript, homophones=None):
+def detect_mispronunciation(
+    ground_truth: List[str], transcript: List[str], homophones: List[Set[str]] = None
+) -> Mispronunciation:
     """Detects if the pair of ground truth and transcript is considered as a mispronunciation.
     We define a mispronunciation to be either an addition (A) / substitution (S).
     Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
@@ -157,7 +155,7 @@ def detect_mispronunciation(ground_truth, transcript, homophones=None):
         List of ground truth words.
     transcript : List[str]
         List of transcript words.
-    homophones : List[Set(str)]
+    homophones : List[Set[str]]
         List of homophone families, by default None.
 
     Returns

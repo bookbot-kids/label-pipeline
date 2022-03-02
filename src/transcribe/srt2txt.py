@@ -1,7 +1,7 @@
 import pysrt
 
 
-def srt2txt(srt_string):
+def srt2txt(srt_string: str) -> str:
     """Converts stream of srt subtitles to text format.
 
     Parameters

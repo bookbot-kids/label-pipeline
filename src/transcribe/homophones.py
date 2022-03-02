@@ -1,5 +1,5 @@
 from difflib import SequenceMatcher
-from typing import List, Set
+from typing import List, Set, Tuple
 
 """
 English Homophones: 
@@ -471,7 +471,7 @@ HOMOPHONES = {
 }
 
 
-def create_convert(*families: List[Set[str]]):
+def create_convert(*families: List[Set[str]]) -> List[List[str]]:
     """Return a converter function that converts a list to the same list with only main words
 
     Parameters
@@ -488,7 +488,9 @@ def create_convert(*families: List[Set[str]]):
     return lambda L: [d.get(w, w) for w in L]
 
 
-def match_sequence(list1: List[str], list2: List[str], homophones: List[Set[str]]):
+def match_sequence(
+    list1: List[str], list2: List[str], homophones: List[Set[str]]
+) -> Tuple[List[int], List[int], List[Tuple[str, int, int, int, int]]]:
     """Finds index of overlaps between two lists given a homophone mapping.
 
     Parameters

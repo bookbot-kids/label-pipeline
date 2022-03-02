@@ -1,31 +1,19 @@
-import boto3
-from botocore.exceptions import ClientError
-import requests
-import time
 import os
-import json
-from enum import Enum, auto
 import re, string
+from typing import Dict, List, Tuple
 from urllib.parse import unquote_plus
-from config import LANGUAGE_CODES, BUCKET, REGION, HOST, STORAGE_ID, SIGNED_URL_TIMEOUT
-from operator import itemgetter
-from itertools import groupby
-from math import ceil
-from homophones import HOMOPHONES, match_sequence
-from mispronunciation import detect_mispronunciation
+
+from config import BUCKET, SIGNED_URL_TIMEOUT, LANGUAGE_CODES
+from homophones import HOMOPHONES
+from mispronunciation import detect_mispronunciation, Mispronunciation
 from srt2txt import srt2txt
 from classifier import SpeakerClassifier
-
-transcribe_client = boto3.client("transcribe", region_name=REGION)
-s3_client = boto3.client("s3")
-
-
-class TranscribeStatus(Enum):
-    SUCCESS = auto()
-    FAILED = auto()
+from transcribe import transcribe_file, TranscribeStatus
+from s3_utils import copy_file, move_file, create_presigned_url, get_object, put_object
+from aligner import overlapping_segments
 
 
-def get_language_code(filename):
+def get_language_code(filename: str) -> str:
     """Get language code from filename for transcribing
 
     Parameters
@@ -49,310 +37,34 @@ def get_language_code(filename):
     return language_code
 
 
-def delete_job(client, job_name):
-    """Deletes job if current job already exists
+def get_ground_truth(ground_truth_filename_prefix: str) -> Tuple[str, str]:
+    """Attempts to grab ground truth file from S3, either ending in txt or srt.
 
     Parameters
     ----------
-    client : TranscribeService.Client
-        AWS Transcribe client from boto3.
-    job_name : str
-        Job name in AWS Transcribe.
+    ground_truth_filename_prefix : str
+        Prefix of ground truth file name.
 
     Returns
     -------
-    response: Dict[str, Any]
-        JSON-formatted response from AWS Transcribe, `None` on failure.
+    Tuple[str, str]
+        Pair of [ground truth string, ground truth file extension], otherwise [None, None].
     """
-    try:
-        response = client.delete_transcription_job(TranscriptionJobName=job_name)
-        return response
-    except ClientError:
-        return None
+    txt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.txt")
+    srt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.srt")
+
+    # if txt exists
+    if txt_transcript_file:
+        return (txt_transcript_file["Body"].read().decode("utf-8"), "txt")
+    elif srt_transcript_file:
+        return (srt2txt(srt_transcript_file["Body"].read().decode("utf-8")), "srt")
+    else:
+        return (None, None)
 
 
-def get_job(client, job_name):
-    """Check if current job already exists
-
-    Parameters
-    ----------
-    client : TranscribeService.Client
-        AWS Transcribe client from boto3.
-    job_name : str
-        Job name in AWS Transcribe.
-
-    Returns
-    -------
-    response: Dict[str, Any]
-        JSON-formatted response from AWS Transcribe, `None` on failure.
-    """
-    try:
-        response = client.get_transcription_job(TranscriptionJobName=job_name)
-        return response
-    except ClientError:
-        return None
-
-
-def move_file(bucket, file, source, destination):
-    """Move `file` in `bucket` from `source` to `destination` folder
-
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be moved (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
-    """
-    s3_resource = boto3.resource("s3")
-
-    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
-        CopySource=f"{bucket}/{source}/{file}"
-    )
-    s3_resource.Object(bucket, f"{source}/{file}").delete()
-    print(f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
-
-
-def copy_file(bucket, file, source, destination):
-    """Copy `file` in `bucket` from `source` to `destination` folder
-
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be copied (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
-    """
-    s3_resource = boto3.resource("s3")
-
-    s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
-        CopySource=f"{bucket}/{source}/{file}"
-    )
-    print(f"Copied file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}")
-
-
-def create_presigned_url(bucket_name, object_name, expiration=3600):
-    """Generate a presigned URL to share an S3 object
-
-    Parameters
-    ----------
-    bucket_name : string
-        Bucket name
-    object_name : string
-        Name of object/file
-    expiration : int, optional
-        Time in seconds for the presigned URL to remain valid, by default 3600
-
-    Returns
-    -------
-    str
-        Presigned URL as string. If error, returns None.
-    """
-    try:
-        response = s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": object_name},
-            ExpiresIn=expiration,
-        )
-    except ClientError as exc:
-        print(exc)
-        return None
-
-    return response
-
-
-def init_label_studio_annotation():
-    """Initializes a pair of dictionaries in Label Studio annotation format.
-
-    Returns
-    -------
-    List[Dict[str, Any]]
-        List containing pair of dictionaries in Label Studio JSON annotation format.
-    """
-    return [
-        {
-            "value": {"start": -1, "end": -1, "text": []},
-            "id": "",
-            "from_name": "transcription",
-            "to_name": "audio",
-            "type": "textarea",
-        },
-        {
-            "value": {"start": -1, "end": -1, "labels": ["Sentence"]},
-            "id": "",
-            "from_name": "labels",
-            "to_name": "audio",
-            "type": "labels",
-        },
-        {
-            "value": {"start": -1, "end": -1, "text": []},
-            "id": "",
-            "from_name": "region-ground-truth",
-            "to_name": "audio",
-            "type": "textarea",
-        },
-    ]
-
-
-def sentencewise_segment(results, ground_truth):
-    """Segments Amazon Transcribe raw output to individual sentences based on full-stop.
-
-    Parameters
-    ----------
-    results : Dict[str, List]
-        Resultant output received from AWS Transcribe.
-    ground_truth : str
-        Ground truth text for the corresponding annotation.
-
-    Returns
-    -------
-    output : List[Dict[str, Any]]
-        List of dictionaries with segment-wise annotations for Label Studio.
-    """
-    output = []
-
-    sentence_counter = 0
-    new_sentence = True
-
-    for item in results["items"]:
-        # add a newly initialized pair of lists if new sentence is detected
-        if new_sentence:
-            output = output + init_label_studio_annotation()
-            new_sentence = False
-
-        idx = sentence_counter * 3
-
-        text_dict = output[idx]
-        label_dict = output[idx + 1]
-        ground_truth_dict = output[idx + 2]
-
-        sentence_id = f"sentence_{sentence_counter}"
-        text_dict["id"] = sentence_id
-        label_dict["id"] = sentence_id
-        ground_truth_dict["id"] = sentence_id
-
-        text_values = text_dict["value"]
-        label_values = label_dict["value"]
-        ground_truth_values = ground_truth_dict["value"]
-
-        token = item["alternatives"][0]["content"]
-
-        if item["type"] == "pronunciation":
-            # start time is at the first word of the sentence
-            # end time is at the last word of the sentence
-            for d in [text_values, label_values, ground_truth_values]:
-                if d["start"] == -1:
-                    d["start"] = float(item["start_time"])
-                d["end"] = float(item["end_time"])
-
-            # concat words in a sentence with whitespace
-            text_values["text"] = [" ".join(text_values["text"] + [token])]
-            # provide region-wise ground truth for convenience
-            ground_truth_values["text"] = [ground_truth]
-
-        elif item["type"] == "punctuation":
-            # if `.` or `?` is detected, assume new sentence begins
-            if token == "." or token == "?":
-                sentence_counter += 1
-                new_sentence = True
-            # append any punctuation (`.` and `,`) to sentence
-            text_values["text"] = ["".join(text_values["text"] + [token])]
-
-    return output
-
-
-def overlapping_segments(results, ground_truth, language, max_repeats=None):
-    """Segments Amazon Transcribe raw output to individual sentences based on overlapping regions.
-
-    Parameters
-    ----------
-    results : Dict[str, List]
-        Resultant output received from AWS Transcribe.
-    ground_truth : str
-        Ground truth text for the corresponding annotation.
-    language : str
-        Language of the transcript-ground truth pair.
-    max_repeats : int, optional
-        Maximum number of repeats when detecting for overlaps, by default None.
-
-    Returns
-    -------
-    output : List[Dict[str, Any]]
-        List of dictionaries with segment-wise annotations for Label Studio.
-    """
-    output = []
-    sentence_counter = 0
-
-    transcripts = [
-        item["alternatives"][0]["content"].lower().strip() for item in results["items"]
-    ]
-
-    ground_truth = ground_truth.lower().strip().replace("-", " ").split(" ")
-
-    # gets approximate number of repeats for case where len(ground_truth) << len(transcripts)
-    # multiplier also manually tweakable if needed, e.g. 3
-    multiplier = (
-        max_repeats if max_repeats else ceil(len(transcripts) / len(ground_truth))
-    )
-    ground_truth *= multiplier
-
-    # find overlaps and mark as new sequence
-    homophones = HOMOPHONES[language] if language in HOMOPHONES else None
-    aligned_transcripts, *_ = match_sequence(transcripts, ground_truth, homophones)
-
-    for _, g in groupby(enumerate(aligned_transcripts), lambda x: x[0] - x[1]):
-        # add a newly initialized pair of lists if new sequence is detected
-        seq = list(map(itemgetter(1), g))
-
-        # first and last element of the sequence
-        first, last = seq[0], seq[-1]
-
-        # in case it overlaps only on punctuations, then skip
-        if "start_time" not in results["items"][first]:
-            continue
-
-        output = output + init_label_studio_annotation()
-
-        idx = sentence_counter * 3
-
-        text_dict = output[idx]
-        label_dict = output[idx + 1]
-        ground_truth_dict = output[idx + 2]
-
-        sentence_id = f"sentence_{sentence_counter}"
-        text_dict["id"] = sentence_id
-        label_dict["id"] = sentence_id
-        ground_truth_dict["id"] = sentence_id
-
-        text_values = text_dict["value"]
-        label_values = label_dict["value"]
-        ground_truth_values = ground_truth_dict["value"]
-
-        # start time is at the first word of the sequence
-        # end time is at the last word of the sequence
-        for d in [text_values, label_values, ground_truth_values]:
-            d["start"] = float(results["items"][first]["start_time"])
-            d["end"] = float(results["items"][last]["end_time"])
-
-        # concat words in a sequence with whitespace
-        overlap = [" ".join(transcripts[first : last + 1])]
-        # provide region-wise transcription and ground truth for convenience
-        for d in [text_values, ground_truth_values]:
-            d["text"] = overlap
-
-        sentence_counter += 1
-
-    return output
-
-
-def classify_mispronunciation(results, ground_truth, language):
+def classify_mispronunciation(
+    results: Dict[str, List], ground_truth: str, language: str
+) -> Mispronunciation:
     """Classifies if a transcription result and ground truth text is a case of mispronunciation.
 
     Parameters
@@ -392,7 +104,7 @@ def classify_mispronunciation(results, ground_truth, language):
     return mispronunciation
 
 
-def compare_transcriptions(ground_truth, transcribed_text):
+def compare_transcriptions(ground_truth: str, transcribed_text: str) -> bool:
     """Checks whether ground truth text and transcribed text are equal
 
     Parameters
@@ -414,161 +126,6 @@ def compare_transcriptions(ground_truth, transcribed_text):
     return ground_truth == transcribed_text
 
 
-def create_task(file_uri, job):
-    """Creates a JSON-formatted task for Label Studio from AWS Transcribe output.
-
-    Parameters
-    ----------
-    file_uri : str
-        URI to audio file in S3 to be Transcribed.
-    job : Dict[str, Any]
-        JSON-formatted response from AWS Transcribe.
-
-    Returns
-    -------
-    Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]
-        Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe results and (3) JSON-formatted task for Label Studio
-    """
-    try:
-        download_uri = job["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
-        results = requests.get(download_uri).json()["results"]
-        transcriptions = [r["transcript"] for r in results["transcripts"]]
-        # confidence score for the entire phrase is a mean of confidence for individual words
-        confidence = sum(
-            float(item["alternatives"][0]["confidence"])
-            for item in results["items"]
-            if item["type"] == "pronunciation"
-        ) / sum(1.0 for item in results["items"] if item["type"] == "pronunciation")
-    except ZeroDivisionError as div_err:
-        confidence = 0.0
-    except Exception as exc:
-        print(f"Error: {exc}")
-        return (
-            TranscribeStatus.FAILED,
-            None,
-            {
-                "data": {"audio": file_uri},
-                "predictions": [
-                    {
-                        "model_version": "amazon_transcribe",
-                        "result": [
-                            {
-                                "from_name": "transcription",
-                                "to_name": "audio",
-                                "type": "textarea",
-                                "value": {"text": [""]},
-                            },
-                        ],
-                    }
-                ],
-            },
-        )
-
-    # if no exceptions occur, or if confidence is set to 0.0 after division-by-zero error
-    return (
-        TranscribeStatus.SUCCESS,
-        results,
-        {
-            "data": {"audio": file_uri},
-            "predictions": [
-                {
-                    "model_version": "amazon_transcribe",
-                    "result": [
-                        {
-                            "from_name": "transcription",
-                            "to_name": "audio",
-                            "type": "textarea",
-                            "value": {"text": transcriptions},
-                        },
-                    ],
-                    "score": confidence,
-                }
-            ],
-        },
-    )
-
-
-def sync_label_studio_s3(language):
-    """Syncs AWS S3 storage in Label Studio based on the project's `language`.
-
-    Parameters
-    ----------
-    language : str
-        Language of the labeling project, e.g. `en` or `id`.
-    """
-    # send sync signal to Label Studio project
-    api_key = os.environ["LABEL_STUDIO_API_KEY"]
-    headers = {"Authorization": f"Token {api_key}"}
-
-    # hard code storage id since get_all_storages_s3 API is broken
-    storage_id = STORAGE_ID[language]
-    storage = requests.get(
-        f"{HOST}/api/storages/s3/{storage_id}", headers=headers
-    ).json()
-
-    if storage:
-        print(f"Successfully fetched storage {storage_id}. {storage}")
-
-    sync = requests.post(
-        f"{HOST}/api/storages/s3/{storage_id}/sync", headers=headers, data=storage
-    ).json()
-
-    if sync:
-        print(f"Successfully synced storage {storage_id}. {sync}")
-
-
-def transcribe_file(
-    job_name, file_uri, transcribe_client, media_format="mp4", language_code="en-US"
-):
-    """Transcribes audio file with AWS Transcribe.
-
-    Parameters
-    ----------
-    job_name : Dict[str, Any]
-        JSON-formatted response from AWS Transcribe.
-    file_uri : str
-        URI to audio file in S3 to be Transcribed.
-    transcribe_client : TranscribeService.Client
-        AWS Transcribe client from boto3.
-    media_format : str, optional
-        Format of audio file, by default "mp4".
-    language_code : str, optional
-        AWS Transcribe language code of audio, by default "en-US".
-
-    Returns
-    -------
-    Tuple[TranscribeStatus, Dict[str, Any]]
-        Tuple consisting of (1) status of AWS Transcribe job and (2) JSON-formatted task for Label Studio
-    """
-    job = get_job(transcribe_client, job_name)
-    if job:
-        print(f"Transcription job {job_name} already exists.")
-        return create_task(file_uri, job)
-
-    # begin transcription job
-    print(f"Start transcription job {job_name}")
-    transcribe_client.start_transcription_job(
-        TranscriptionJobName=job_name,
-        Media={"MediaFileUri": file_uri},
-        MediaFormat=media_format,
-        LanguageCode=language_code,
-    )
-
-    # might be risky, but this relies on Lambda's 3 mins timeout
-    while True:
-        job = transcribe_client.get_transcription_job(TranscriptionJobName=job_name)
-        job_status = job["TranscriptionJob"]["TranscriptionJobStatus"]
-        if job_status in ["COMPLETED", "FAILED"]:
-            print(f"Job {job_name} is {job_status}.")
-            # if transcription job completes or fails, create Label Studio JSON-formatted task accordingly
-            return create_task(file_uri, job)
-        elif job_status == "IN_PROGRESS":
-            # otherwise, if the transcription is still in progress, keep it running
-            print(f"Waiting for {job_name}. Current status is {job_status}.")
-            # give a 10 second timeout
-            time.sleep(20)
-
-
 def lambda_handler(event, context):
     """Event listener for S3 event and calls Transcribe job.
 
@@ -586,21 +143,10 @@ def lambda_handler(event, context):
     """
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = unquote_plus(event["Records"][0]["s3"]["object"]["key"], encoding="utf-8")
-    try:
-        response = s3_client.get_object(Bucket=bucket, Key=key)
-    except Exception as e:
-        print(e)
-        print(
-            "Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.".format(
-                key, bucket
-            )
-        )
-        raise e
-    else:
-        main(f"s3://{bucket}/{key}")
+    main(f"s3://{bucket}/{key}")
 
 
-def main(audio_file):
+def main(audio_file: str):
     """Main function to run Transcribe, generate Label Studio JSON-annotation, and saves JSON to S3.
 
     Parameters
@@ -611,102 +157,67 @@ def main(audio_file):
     EXT2FORMAT = {".wav": "wav", ".m4a": "mp4", ".aac": "mp4"}
     job_name, audio_extension = os.path.splitext(os.path.basename(audio_file))
     folder_name = os.path.basename(os.path.dirname(audio_file))
-    # parent_folder = os.path.basename(os.path.split(os.path.dirname(audio_file))[0])
     language = folder_name.split("-")[0]
     language_code = get_language_code(audio_file)
+    ground_truth, ground_truth_ext = get_ground_truth(
+        f"dropbox/{folder_name}/{job_name}"
+    )
+
+    speaker_type = SpeakerClassifier(audio_file).predict()
+    if speaker_type == "ADULT":
+        print("Adult audio detected. Archiving audio.")
+        for ext in [audio_extension[1:], ground_truth_ext]:
+            move_file(
+                BUCKET,
+                f"{job_name}.{ext}",
+                f"dropbox/{folder_name}",
+                f"archive/adult/{folder_name}",
+            )
+        return
 
     status, results, task = transcribe_file(
         job_name,
         audio_file,
-        transcribe_client,
         media_format=EXT2FORMAT[audio_extension],
         language_code=language_code,
     )
 
     transcribed_text = task["predictions"][0]["result"][0]["value"]["text"][0]
-    ground_truth = ""
-    # flag to indicate if txt ground truth can be found; otherwise, consult srt file
-    # this avoids having to attempt to get BOTH txt and srt from S3
-    is_text_file_available = False
     mispronunciation = None
 
     if status == TranscribeStatus.SUCCESS:
-        # try and find corresponding txt ground truth file
-        text_file_path = f"dropbox/{folder_name}/{job_name}.txt"
-        try:
-            # if successfully transcribed, get and compare with ground truth `.txt` file
-            text_file = s3_client.get_object(Bucket=BUCKET, Key=text_file_path)
-        except Exception as exc:
-            print(
-                f"Key {text_file_path} is unavailable, will attempt to grab `srt` file.."
-            )
-        else:
-            is_text_file_available = True
-            ground_truth = text_file["Body"].read().decode("utf-8")
+        if ground_truth != None:
             # classify for mispronunciation
             mispronunciation = classify_mispronunciation(
                 results, ground_truth, language
             )
+            # add ground truth to Label Studio JSON-annotated task (for reference)
+            task["data"]["text"] = ground_truth
             # add region-wise transcriptions and ground truth (for convenience of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
                 results, ground_truth, language, max_repeats=3
             )
 
-        if not is_text_file_available:
-            # otherwise, try and find the corresponding srt ground truth file
-            srt_file_path = f"dropbox/{folder_name}/{job_name}.srt"
-            try:
-                # if successfully transcribed, get and compare with ground truth `.srt` file
-                srt_file = s3_client.get_object(Bucket=BUCKET, Key=srt_file_path)
-            except Exception as exc:
-                print(f"Key {srt_file_path} is also unavailable..")
-            else:
-                # convert srt to txt
-                ground_truth = srt2txt(srt_file["Body"].read().decode("utf-8"))
-                # classify for mispronunciation
-                mispronunciation = classify_mispronunciation(
-                    results, ground_truth, language
-                )
-                # add region-wise transcriptions and ground truth (for convenience of labeler)
-                task["predictions"][0]["result"] += overlapping_segments(
-                    results, ground_truth, language, max_repeats=3
-                )
-
-    # add ground truth to Label Studio JSON-annotated task (for reference)
-    task["data"]["text"] = ground_truth
-
     if status == TranscribeStatus.FAILED or transcribed_text == "":
         # archive Transcribe-failed annotations
         save_path = f"archive/{folder_name}/{job_name}.json"
-
         # move audios to `archive`
-        audio_extension = audio_extension[1:]  # remove the dot
-        ground_truth_extension = "txt" if is_text_file_available else "srt"
-
-        for ext in [audio_extension, ground_truth_extension]:
+        for ext in [audio_extension[1:], ground_truth_ext]:
             move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
                 f"dropbox/{folder_name}",
                 f"archive/{folder_name}",
             )
-
-    # # uncomment this section if we want strict comparison; else, we can simply split based on aligned sections.
-    # elif not compare_transcriptions(ground_truth, transcribed_text):
-    #     # save Label Studio-ready annotations to `label-studio/raw/{language}/` for further inspection
-    #     save_path = f"label-studio/raw/{language}/{folder_name}/{job_name}.json"
     else:
         # otherwise, save annotations to `label-studio/verified` for audio splitting
         save_path = f"label-studio/verified/{folder_name}/{job_name}.json"
 
     if mispronunciation:
-        # audio
-        audio_extension = audio_extension[1:]  # remove the dot
-
         # copy audio to a separate folder for annotation
         copy_file(
             BUCKET,
-            f"{job_name}.{audio_extension}",
+            f"{job_name}{audio_extension[1:]}",
             f"dropbox/{folder_name}",
             f"mispronunciations/raw/{folder_name}",
         )
@@ -714,14 +225,13 @@ def main(audio_file):
         # log results to AirTable
         mispronunciation.job_name = job_name
         mispronunciation.language = folder_name
-        mispronunciation.speaker_type = SpeakerClassifier(audio_file).predict()
         mispronunciation.audio_url = create_presigned_url(
             BUCKET,
-            f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
+            f"mispronunciations/raw/{folder_name}/{job_name}{audio_extension[1:]}",
             SIGNED_URL_TIMEOUT,
         )
         mispronunciation.log_to_airtable()
 
     # export JSON to respective folders in S3
-    s3_client.put_object(Body=json.dumps(task), Bucket=BUCKET, Key=save_path)
+    put_object(task, BUCKET, save_path)
     print(f"File {save_path} successfully created and saved.")

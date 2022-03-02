@@ -30,7 +30,7 @@ class SpeakerClassifier:
         self.headers = {"Content-Type": "application/json"}
         self.payload = {"audio_url": self.audio_url}
 
-    def predict(self):
+    def predict(self) -> str:
         """Predicts the audio's speaker type, either child or adult.
 
         Returns
