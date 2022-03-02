@@ -103,24 +103,25 @@ def split_export_audio(annotations, annotation_key, audio_file, bucket, key_pref
                     Body=values["text"][0], Bucket=bucket, Key=f"{save_path}.txt"
                 )
 
-                # export audio segment for categorization
-                s3_client.put_object(
-                    Body=stdout,
-                    Bucket=bucket,
-                    Key=f"categorisation/raw/{key_prefix}-{idx}.wav",
-                )
+                # # TODO: uncomment to enable classifier data collection
+                # # export audio segment for categorization
+                # s3_client.put_object(
+                #     Body=stdout,
+                #     Bucket=bucket,
+                #     Key=f"categorisation/raw/{key_prefix}-{idx}.wav",
+                # )
 
-                # log to AirTable
-                audio_url = create_presigned_url(bucket, f"{save_path}.wav")
+                # # log to AirTable
+                # audio_url = create_presigned_url(bucket, f"{save_path}.wav")
 
-                logger = AirTableLogger(
-                    os.path.basename(save_path),
-                    audio_url,
-                    values["text"][0],
-                    folder_name,
-                )
+                # logger = AirTableLogger(
+                #     os.path.basename(save_path),
+                #     audio_url,
+                #     values["text"][0],
+                #     folder_name,
+                # )
 
-                logger.log_to_airtable()
+                # logger.log_to_airtable()
             except Exception as exc:
                 print(f"Error: {exc}")
         print(f"Successfully split and exported to {key_prefix}")
