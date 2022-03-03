@@ -44,11 +44,14 @@ The high-level overview of this pipeline is shown below.
 │   ├── step_function_invoker
 │   │   └── lambda_function.py
 │   ├── transcribe
+│   │   ├── aligner.py
 │   │   ├── classifier.py
 │   │   ├── homophones.py
 │   │   ├── lambda_function.py
 │   │   ├── mispronunciation.py
-│   │   └── srt2txt.py
+│   │   ├── s3_utils.py
+│   │   ├── srt2txt.py
+│   │   └── transcribe.py
 │   └── webhook_listener
 │       └── lambda_function.py
 ├── tests
