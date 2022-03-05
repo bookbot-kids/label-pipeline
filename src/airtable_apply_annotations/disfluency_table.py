@@ -1,7 +1,10 @@
-from airtable_s3_integration import AirTableS3Integration
-from typing import Dict, Any, List
-from s3_utils import delete_file, move_file, write_file
 import json
+import string
+from typing import Dict, Any, List
+from homophones import HOMOPHONES
+from mispronunciation import detect_mispronunciation
+from airtable_s3_integration import AirTableS3Integration
+from s3_utils import delete_file, move_file, write_file
 
 
 class DisfluencyTable(AirTableS3Integration):
@@ -53,23 +56,50 @@ class DisfluencyTable(AirTableS3Integration):
         record : Dict[str, Any]
             An AirTable record/row.
         """
+
+        def classify_mispronunciation(transcript, ground_truth, language):
+            _preprocess_sequence = (
+                lambda sequence: sequence.replace("-", " ")
+                .translate(str.maketrans("", "", string.punctuation))
+                .lower()
+                .strip()
+            )
+
+            transcript = _preprocess_sequence(transcript).split()
+            ground_truth = _preprocess_sequence(ground_truth).split()
+
+            homophones = HOMOPHONES[language] if language in HOMOPHONES else None
+            mispronunciation = detect_mispronunciation(
+                ground_truth, transcript, homophones
+            )
+
+            return mispronunciation
+
         fields = record["fields"]
 
         job_name, language = fields["Job Name"], fields["Language"]
-        disfluency, transcript = fields["Disfluency"].lower(), fields["Transcript"]
+        ground_truth, transcript = fields["Ground Truth"], fields["Transcript"]
         audio_filename = fields["Audio"][0]["filename"]
+        delete = fields["Delete?"] if "Delete?" in fields else False
+
+        # recalculate disfluency
+        disfluency = classify_mispronunciation(
+            transcript, ground_truth, language.split("-")[0]
+        )
+        fields["Disfluency"] = disfluency
 
         source_path = f"mispronunciations/raw/{language}"
-        save_path = f"mispronunciations/{disfluency}/{language}"
+        save_path = f"mispronunciations/{disfluency.lower()}/{language}"
 
-        if disfluency == "delete":
+        # if manually marked to delete or if no disfluency is detected
+        if delete or disfluency == "DELETE":
             delete_file(self.bucket, audio_filename, source_path)
         else:
             move_file(self.bucket, audio_filename, source_path, save_path)
             write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
 
     def _finalize_records(self, records: List[Dict[str, Any]]):
-        """Finalizes disfluency records by marking "AWS" column as `True`.
+        """Finalizes disfluency records by marking "AWS" column as `True` and updating disfluency.
 
         Parameters
         ----------
@@ -79,7 +109,14 @@ class DisfluencyTable(AirTableS3Integration):
         payload = json.dumps(
             {
                 "records": [
-                    {"id": record["id"], "fields": {"AWS": True}} for record in records
+                    {
+                        "id": record["id"],
+                        "fields": {
+                            "Disfluency": record["fields"]["Disfluency"],
+                            "AWS": True,
+                        },
+                    }
+                    for record in records
                 ]
             }
         )

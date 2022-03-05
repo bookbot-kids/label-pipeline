@@ -12,7 +12,7 @@ def main():
     }
 
     disfluency_table_url = (
-        "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master?view=Master"
+        "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master?view=Annotated"
     )
     disfluency_table = DisfluencyTable(disfluency_table_url, filter_formula, headers)
     disfluency_table.process_table_data()
