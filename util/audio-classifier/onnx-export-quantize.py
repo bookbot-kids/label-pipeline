@@ -95,7 +95,7 @@ def test_onnx_model(
 
 
 def main():
-    model_checkpoint = "bookbot/distil-wav2vec2-adult-child-cls-52m"
+    model_checkpoint = "bookbot/distil-wav2vec2-adult-child-id-cls-52m"
     onnx_model_name = model_checkpoint.split("/")[-1] + ".onnx"
     quantized_model_name = model_checkpoint.split("/")[-1] + ".quant.onnx"
 

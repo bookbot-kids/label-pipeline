@@ -3,6 +3,7 @@ import onnxruntime
 from s3_utils import get_audio_file
 import ffmpeg
 import numpy as np
+import os
 
 
 def read_audio_as_array(audio: str) -> np.ndarray:
@@ -111,6 +112,7 @@ def lambda_handler(event, context) -> str:
     try:
         audio_url = json.loads(event["body"])["audio_url"]
         audio = get_audio_file(audio_url)
+        language = os.path.basename(os.path.dirname(audio_url)).split("-")[0]
         audio_array = read_audio_as_array(audio)
         if audio_array.size == 0:
             print(f"Audio {audio_url} is empty.")
@@ -124,8 +126,16 @@ def lambda_handler(event, context) -> str:
     else:
         processed_audio = preprocess(audio_array)
 
-        # onnx_model_path = "/opt/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
-        onnx_model_path = "../../models/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
+        if language == "id":
+            # onnx_model_path = "/opt/distil-wav2vec2-adult-child-id-cls-52m.quant.onnx"
+            onnx_model_path = (
+                "../../models/distil-wav2vec2-adult-child-id-cls-52m.quant.onnx"
+            )
+        else:
+            # onnx_model_path = "/opt/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
+            onnx_model_path = (
+                "../../models/distil-wav2vec2-adult-child-cls-52m.quant.onnx"
+            )
         results = predict(processed_audio, onnx_model_path)
 
         response = {"statusCode": 200, "body": results}
@@ -134,7 +144,7 @@ def lambda_handler(event, context) -> str:
 
 if __name__ == "__main__":
     payload = {
-        "audio_url": "s3://bookbot-speech/archive/en-au/381ed48d-0d1f-4f73-91d4-38c960d162fa_1645734280599.aac"
+        "audio_url": "s3://bookbot-speech/archive/id-id/386cc312-5a30-41a6-a21b-c2184c225260_1636982327979.aac"
     }
     event = {"body": json.dumps(payload)}
     response = lambda_handler(event, None)
