@@ -4,8 +4,13 @@ import os
 import json
 import ffmpeg
 from src.config import ADMIN_EMAIL
-from airtable_logger import AirTableLogger
-from s3_utils import s3_client, move_file, get_audio_file, create_presigned_url
+from src.audio_splitter.airtable_logger import AirTableLogger
+from src.audio_splitter.s3_utils import (
+    s3_client,
+    move_file,
+    get_audio_file,
+    create_presigned_url,
+)
 
 
 def trim_audio(input_path: str, start: float, end: float) -> Tuple[bytes, bytes]:

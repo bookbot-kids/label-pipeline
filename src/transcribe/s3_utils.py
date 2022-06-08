@@ -10,16 +10,11 @@ s3_resource = boto3.resource("s3")
 def move_file(bucket: str, file: str, source: str, destination: str):
     """Move `file` in `bucket` from `source` to `destination` folder
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be moved (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be moved (without full-path).
+        source (str): Source folder in S3 bucket.
+        destination (str): Destination folder in S3 bucket.
     """
 
     try:
@@ -41,16 +36,11 @@ def move_file(bucket: str, file: str, source: str, destination: str):
 def copy_file(bucket: str, file: str, source: str, destination: str):
     """Copy `file` in `bucket` from `source` to `destination` folder
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be copied (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be copied (without full-path).
+        source (str): Source folder in S3 bucket.
+        destination (str): Destination folder in S3 bucket.
     """
 
     try:
@@ -70,17 +60,12 @@ def copy_file(bucket: str, file: str, source: str, destination: str):
 def get_object(bucket: str, key: str) -> Any:
     """Gets object from S3.
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    key : str
-        Key to file in bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        key (str): Key to file in bucket.
 
-    Returns
-    -------
-    Any
-        S3 Object retrieved.
+    Returns:
+        Any: S3 Object retrieved.
     """
     try:
         s3_object = s3_client.get_object(Bucket=bucket, Key=key)
@@ -93,14 +78,10 @@ def get_object(bucket: str, key: str) -> Any:
 def put_object(json_object: str, bucket: str, key: str):
     """Puts `json_object` (in str) to S3 bucket.
 
-    Parameters
-    ----------
-    json_object : str
-        String representation of JSON object to put in S3.
-    bucket : str
-        S3 bucket name.
-    key : str
-        Key to file in bucket.
+    Args:
+        json_object (str): String representation of JSON object to put in S3.
+        bucket (str): S3 bucket name.
+        key (str): Key to file in bucket.
     """
     try:
         s3_client.put_object(Body=json.dumps(json_object), Bucket=bucket, Key=key)
@@ -110,22 +91,16 @@ def put_object(json_object: str, bucket: str, key: str):
 
 def create_presigned_url(
     bucket_name: str, object_name: str, expiration: int = 3600
-) -> str:
+) -> Any:
     """Generate a presigned URL to share an S3 object
 
-    Parameters
-    ----------
-    bucket_name : str
-        Bucket name
-    object_name : str
-        Name of object/file
-    expiration : int, optional
-        Time in seconds for the presigned URL to remain valid, by default 3600
+    Args:
+        bucket_name (str): Bucket name
+        object_name (str): Name of object/file
+        expiration (int, optional): Time in seconds for the presigned URL to remain valid. Defaults to 3600.
 
-    Returns
-    -------
-    str
-        Presigned URL as string. If error, returns None.
+    Returns:
+        Any: Presigned URL as string. If error, returns `None`.
     """
     try:
         response = s3_client.generate_presigned_url(

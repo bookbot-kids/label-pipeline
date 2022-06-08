@@ -474,15 +474,11 @@ HOMOPHONES = {
 def create_convert(*families: List[Set[str]]) -> List[List[str]]:
     """Return a converter function that converts a list to the same list with only main words
 
-    Parameters
-    ----------
-    families : List[Set[str]]
-        List of homophone families.
+    Arguments:
+        families (List[Set[str]]): List of homophone families.
 
-    Returns
-    -------
-    List[List[str]]
-        True if all paths exist in `files`
+    Returns:
+        List[List[str]]: True if all paths exist in `files`
     """
     d = {w: main for main, *alternatives in map(list, families) for w in alternatives}
     return lambda L: [d.get(w, w) for w in L]
@@ -493,19 +489,14 @@ def match_sequence(
 ) -> Tuple[List[int], List[int], List[Tuple[str, int, int, int, int]]]:
     """Finds index of overlaps between two lists given a homophone mapping.
 
-    Parameters
-    ----------
-    list1 : List[str]
-        List of words in a sequence.
-    list2 : List[str]
-        List of words in another sequence for matching/comparison.
-    homophones : List[Set[str]]
-        List of homophone families.
+    Args:
+        list1 (List[str]): List of words in a sequence.
+        list2 (List[str]): List of words in another sequence for matching/comparison.
+        homophones (List[Set[str]]): List of homophone families.
 
-    Returns
-    -------
-    Tuple[List[int], List[int], List[Tuple[str, int, int, int, int]]]
-        Pair of lists containing list of indices of overlap.
+    Returns:
+        Tuple[List[int], List[int], List[Tuple[str, int, int, int, int]]]: 
+            Pair of lists containing list of indices of overlap.
     """
     convert = create_convert(*homophones)
     output1, output2 = [], []

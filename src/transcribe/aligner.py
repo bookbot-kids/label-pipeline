@@ -1,17 +1,15 @@
 from math import ceil
 from typing import Any, Dict, List
-from homophones import HOMOPHONES, match_sequence
 from operator import itemgetter
 from itertools import groupby
+from src.transcribe.homophones import HOMOPHONES, match_sequence
 
 
 def init_label_studio_annotation() -> List[Dict[str, Any]]:
     """Initializes a pair of dictionaries in Label Studio annotation format.
 
-    Returns
-    -------
-    List[Dict[str, Any]]
-        List containing pair of dictionaries in Label Studio JSON annotation format.
+    Returns:
+        List[Dict[str, Any]]: List containing pair of dictionaries in Label Studio JSON annotation format.
     """
     return [
         {
@@ -43,17 +41,12 @@ def sentencewise_segment(
 ) -> List[Dict[str, Any]]:
     """Segments Amazon Transcribe raw output to individual sentences based on full-stop.
 
-    Parameters
-    ----------
-    results : Dict[str, List]
-        Resultant output received from AWS Transcribe.
-    ground_truth : str
-        Ground truth text for the corresponding annotation.
+    Args:
+        results (Dict[str, List]): Resultant output received from AWS Transcribe.
+        ground_truth (str): Ground truth text for the corresponding annotation.
 
-    Returns
-    -------
-    output : List[Dict[str, Any]]
-        List of dictionaries with segment-wise annotations for Label Studio.
+    Returns:
+        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for Label Studio.
     """
     output = []
 
@@ -112,21 +105,14 @@ def overlapping_segments(
 ) -> List[Dict[str, Any]]:
     """Segments Amazon Transcribe raw output to individual sentences based on overlapping regions.
 
-    Parameters
-    ----------
-    results : Dict[str, List]
-        Resultant output received from AWS Transcribe.
-    ground_truth : str
-        Ground truth text for the corresponding annotation.
-    language : str
-        Language of the transcript-ground truth pair.
-    max_repeats : int, optional
-        Maximum number of repeats when detecting for overlaps, by default None.
+    Args:
+        results (Dict[str, List]): Resultant output received from AWS Transcribe.
+        ground_truth (str): Ground truth text for the corresponding annotation.
+        language (str): Language of the transcript-ground truth pair.
+        max_repeats (int, optional): Maximum number of repeats when detecting for overlaps. Defaults to None.
 
-    Returns
-    -------
-    output : List[Dict[str, Any]]
-        List of dictionaries with segment-wise annotations for Label Studio.
+    Returns:
+        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for Label Studio.
     """
     output = []
     sentence_counter = 0

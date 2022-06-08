@@ -17,17 +17,13 @@ class TranscribeStatus(Enum):
 def get_job(client: boto3.session.Session.client, job_name: str) -> Dict[str, Any]:
     """Check if current job already exists
 
-    Parameters
-    ----------
-    client : TranscribeService.Client
-        AWS Transcribe client from boto3.
-    job_name : str
-        Job name in AWS Transcribe.
+    Args:
+        client (boto3.session.Session.client): AWS Transcribe client from boto3.
+        job_name (str): Job name in AWS Transcribe.
 
-    Returns
-    -------
-    response: Dict[str, Any]
-        JSON-formatted response from AWS Transcribe, `None` on failure.
+    Returns:
+        Dict[str, Any]:
+            JSON-formatted response from AWS Transcribe, `None` on failure.
     """
     try:
         response = client.get_transcription_job(TranscriptionJobName=job_name)
@@ -41,17 +37,13 @@ def create_task(
 ) -> Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
     """Creates a JSON-formatted task for Label Studio from AWS Transcribe output.
 
-    Parameters
-    ----------
-    file_uri : str
-        URI to audio file in S3 to be Transcribed.
-    job : Dict[str, Any]
-        JSON-formatted response from AWS Transcribe.
+    Args:
+        file_uri (str): URI to audio file in S3 to be Transcribed.
+        job (Dict[str, Any]): JSON-formatted response from AWS Transcribe.
 
-    Returns
-    -------
-    Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]
-        Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe results and (3) JSON-formatted task for Label Studio
+    Returns:
+        Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
+            Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe results and (3) JSON-formatted task for Label Studio
     """
     try:
         download_uri = job["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
@@ -117,24 +109,18 @@ def transcribe_file(
     file_uri: str,
     media_format: str = "mp4",
     language_code: str = "en-US",
-):
+) -> Tuple[TranscribeStatus, Dict[str, Any]]:
     """Transcribes audio file with AWS Transcribe.
 
-    Parameters
-    ----------
-    job_name : str
-        AWS Transcribe job name.
-    file_uri : str
-        URI to audio file in S3 to be Transcribed.
-    media_format : str, optional
-        Format of audio file, by default "mp4".
-    language_code : str, optional
-        AWS Transcribe language code of audio, by default "en-US".
+    Args:
+        job_name (str): AWS Transcribe job name.
+        file_uri (str): URI to audio file in S3 to be Transcribed.
+        media_format (str, optional): Format of audio file. Defaults to "mp4".
+        language_code (str, optional): AWS Transcribe language code of audio. Defaults to "en-US".
 
-    Returns
-    -------
-    Tuple[TranscribeStatus, Dict[str, Any]]
-        Tuple consisting of (1) status of AWS Transcribe job and (2) JSON-formatted task for Label Studio
+    Returns:
+        Tuple[TranscribeStatus, Dict[str, Any]]: 
+            Tuple consisting of (1) status of AWS Transcribe job and (2) JSON-formatted task for Label Studio
     """
     job = get_job(transcribe_client, job_name)
     if job:

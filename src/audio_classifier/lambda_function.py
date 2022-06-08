@@ -110,6 +110,9 @@ def lambda_handler(event, context) -> str:
        String-formatted JSON object containing statusCode and prediction.
     """
     try:
+        if event["headers"]["Authorization"] != os.environ["API_KEY"]:
+            raise Exception
+
         audio_url = json.loads(event["body"])["audio_url"]
         audio = get_audio_file(audio_url)
         language = os.path.basename(os.path.dirname(audio_url)).split("-")[0]

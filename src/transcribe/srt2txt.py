@@ -4,15 +4,11 @@ import pysrt
 def srt2txt(srt_string: str) -> str:
     """Converts stream of srt subtitles to text format.
 
-    Parameters
-    ----------
-    srt_string : str
-        String-representation of srt subtitles.
+    Args:
+        srt_string (str): String-representation of srt subtitles.
 
-    Returns
-    -------
-    str
-        Cleaned text format of subtitles concatenated with space.
+    Returns:
+        str: Cleaned text format of subtitles concatenated with space.
     """
     subs = pysrt.from_string(srt_string)
     texts = [sub.text for sub in subs]

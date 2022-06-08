@@ -1,9 +1,9 @@
 from typing import List, Set, Tuple
-from homophones import HOMOPHONES, match_sequence
 from enum import Enum, auto
 import os
 import json
 import requests
+from src.transcribe.homophones import HOMOPHONES, match_sequence
 
 
 class MispronunciationType(Enum):
@@ -17,25 +17,13 @@ class Mispronunciation:
     A class to represent a Mispronunciation. 
     Contains attributes which holds the type and differences.
 
-    Attributes
-    ----------
-    job_name : str
-        Job name/id.
-    audio_url : str
-        URL to audio file.
-    language : str
-        Language of audio.
-    type : MispronunciationType
-        Type of mispronunciation/disfluency present.
-    lists : Tuple[List[str], List[str]]
-        Input list of strings taken for comparison.
-    differences : Tuple[List[str], List[str]]
-        Differences of list of strings that resulted in the type verdict.
-
-    Methods
-    -------
-    log_to_airtable() -> None:
-        Logs mispronunciation to AirTable.
+    Arguments:
+        job_name (str): Job name/id.
+        audio_url (str): URL to audio file.
+        language (str): Language of audio.
+        type (MispronunciationType): Type of mispronunciation/disfluency present.
+        lists (Tuple[List[str], List[str]]): Input list of strings taken for comparison.
+        differences (Tuple[List[str], List[str]]): Differences of list of strings that resulted in the type verdict.
     """
 
     def __init__(
@@ -47,14 +35,11 @@ class Mispronunciation:
     ):
         """Constructor for the `Mispronunciation` class.
 
-        Parameters
-        ----------
-        type : MispronunciationType
-            Type of mispronunciation/disfluency present.
-        lists : Tuple[List[str], List[str]]
-            Input list of strings taken for comparison.
-        differences : Tuple[List[str], List[str]]
-            Differences of list of strings that resulted in the type verdict.
+        Args:
+            type (MispronunciationType): Type of mispronunciation/disfluency present.
+            lists (Tuple[List[str], List[str]]): Input list of strings taken for comparison.
+            differences (Tuple[List[str], List[str]]): Differences of list of strings that resulted in the type verdict.
+            opcodes (List[Tuple[str, int, int, int, int]]): Opcodes from `diff` library.
         """
         self.job_name = None
         self.audio_url = None
@@ -127,15 +112,11 @@ class Mispronunciation:
 def remove_fillers(word: str) -> bool:
     """Manually checks if a word is a filler word
 
-    Parameters
-    ----------
-    word : str
-        Any word (sequence of characters).
+    Args:
+        word (str): Any word (sequence of characters).
 
-    Returns
-    -------
-    bool
-        True if word is not a filler. False otherwise.
+    Returns:
+        bool: `True` if word is not a filler. `False` otherwise.
     """
     fillers = ("", "uh", "huh", "mm", "yeah", "mhm", "hmm", "hm")
     return word not in fillers
@@ -149,20 +130,14 @@ def detect_mispronunciation(
     Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
     Also handles homophones given a pre-defined list.
 
-    Parameters
-    ----------
-    ground_truth : List[str]
-        List of ground truth words.
-    transcript : List[str]
-        List of transcript words.
-    homophones : List[Set[str]]
-        List of homophone families, by default None.
+    Args:
+        ground_truth (List[str]): List of ground truth words.
+        transcript (List[str]): List of transcript words.
+        homophones (List[Set[str]], optional): List of homophone families. Defaults to None.
 
-    Returns
-    -------
-    Mispronunciation
-        Object of mispronunciation present. Otherwise, None.
-
+    Returns:
+        Mispronunciation: Object of mispronunciation present. Otherwise, `None`.
+        
     Examples
     -------------------------------------------------------------
     | # | Ground Truth       | Transcript             | Verdict |
@@ -175,19 +150,21 @@ def detect_mispronunciation(
     | 6 | skel is a skeleton | skel is zombie         |    D    |
     | 7 | vain is a skeleton | vein is a skeleton     |    M    |
     | 8 | skel               | skel is a skeleton     |    X    |
-    -------------------------------------------------------------
 
     Algorithm
     ----------
     BASE CASES if:
+
     - single-word ground truth
     - empty transcript
     - zero alignment
 
     MATCH if:
+
     - both residues are empty (100% match)
 
     DELETION if:
+
     - zero transcript residue, >1 ground truth residue 
         - all spoken transcripts are correct, but some words are missing
     - more residue in ground truth than in transcript
@@ -195,14 +172,17 @@ def detect_mispronunciation(
         - may possibly contain substitution, but could be minimal
 
     ADDITION if:
+
     - zero ground truth residue, >1 transcript residue
         - all words in ground truth are perfectly spoken, but additional words are present
 
     SUBSTITUTION if:
+
     - same amounts of residue, at exact same positions
         - strict form of substitution, only 1-1 changes per position
 
     ADDITION & SUBSTITUTION if:
+
     - more residue in transcript than in ground truth
         - with at least 1 match
     """

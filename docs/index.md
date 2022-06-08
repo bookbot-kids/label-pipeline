@@ -28,6 +28,16 @@ cd label-pipeline
 pip install -r requirements.txt
 ```
 
+## References
+
+```bib
+@misc{label-studio-no-date,
+	author = {{Label Studio}},
+	title = {{Improve Audio Transcriptions with Label Studio}},
+	url = {https://labelstud.io/blog/Improve-Audio-Transcriptions-with-Label-Studio.html},
+}
+```
+
 ## Contributors
 
 <a href="https://github.com/bookbot-kids/label-pipeline/graphs/contributors">
