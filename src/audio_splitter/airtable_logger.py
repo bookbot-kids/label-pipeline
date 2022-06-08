@@ -8,23 +8,12 @@ class AirTableLogger:
     A utility class to assist AirTable logging purposes. 
     Contains attributes which holds the audio, ground truth, transcript, and language.
 
-    Attributes
-    ----------
-    job_name : str
-        Job name/id.
-    audio_url : str
-        URL to audio file.
-    transcripts : str
-        Transcription received from AWS Transcribe.
-    language : str
-        Language of audio.
-    category: str
-        Type of audio present, defaults to `CHILD` for first log.
-
-    Methods
-    -------
-    log_to_airtable() -> None:
-        Logs results to AirTable.
+    Attributes:
+        job_name (str): Job name/id.
+        audio_url (str): URL to audio file.
+        transcripts (str): Transcription received from AWS Transcribe.
+        language (str): Language of audio.
+        category(str): Type of audio present, defaults to `CHILD` for first log.
     """
 
     def __init__(
@@ -32,16 +21,11 @@ class AirTableLogger:
     ):
         """Constructor for the `AirTableLogger` class.
 
-        Parameters
-        ----------
-        job_name : str
-            Job name/id.
-        audio_url : str
-            URL to audio file.
-        transcripts : str
-            Transcription received from AWS Transcribe.
-        language : str
-            Language of audio.
+        Args:
+            job_name (str): Job name/id.
+            audio_url (str): URL to audio file.
+            transcript (str): Transcription received from AWS Transcribe.
+            language (str): Language of audio.
         """
         self.job_name = job_name
         self.audio_url = audio_url
@@ -50,7 +34,7 @@ class AirTableLogger:
         self.category = "CHILD"
 
     def log_to_airtable(self):
-        """Logs `self` to AirTable.
+        """Logs `self` attributes to AirTable.
         """
         fields = {
             "Job Name": self.job_name,

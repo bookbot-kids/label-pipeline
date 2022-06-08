@@ -16,7 +16,7 @@ This repository hosts the necessary AWS Lambda scripts to facilitate an automate
 
 The high-level overview of this pipeline is shown below.
 
-![](./images/audio-labeling-pipeline.png)
+![](docs/images/audio-labeling-pipeline.png)
 
 # Structure
 

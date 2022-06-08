@@ -1,31 +1,25 @@
+from typing import Tuple, List, Dict, Any
 from urllib.parse import unquote_plus
 import os
 import json
 import ffmpeg
-from config import ADMIN_EMAIL
+from src.config import ADMIN_EMAIL
 from airtable_logger import AirTableLogger
 from s3_utils import s3_client, move_file, get_audio_file, create_presigned_url
 
 
-def trim_audio(input_path, start, end):
+def trim_audio(input_path: str, start: float, end: float) -> Tuple[bytes, bytes]:
     """Trims audio from `input_path` from `start` to `end` (in seconds), pipes output audio stdout and stderr.
-    Source: https://github.com/kkroening/ffmpeg-python/issues/184#issuecomment-504390452
+    [Source](https://github.com/kkroening/ffmpeg-python/issues/184#issuecomment-504390452).
 
-    Parameters
-    ----------
-    input_path : str
-        Input file URL (ffmpeg -i option).
-    start : float
-        Timestamp (in seconds) of the start of the section to keep.
-    end : float
-        Specify time of the first audio sample that will be dropped.
+    Args:
+        input_path (str): Input file URL (`ffmpeg -i` option).
+        start (float): Timestamp (in seconds) of the start of the section to keep.
+        end (float): Specify time of the first audio sample that will be dropped.
 
-    Returns
-    -------
-    Tuple[bytes, bytes]
-        Tuple-pair of stdout and stderr bytes.
+    Returns:
+        Tuple[bytes, bytes]: Tuple-pair of stdout and stderr bytes.
     """
-
     input_stream = ffmpeg.input(input_path)
 
     aud = input_stream.audio.filter_("atrim", start=start, end=end).filter_(
@@ -44,19 +38,21 @@ def trim_audio(input_path, start, end):
     return (stdout, stderr)
 
 
-def split_export_audio(annotations, annotation_key, audio_file, bucket, key_prefix):
+def split_export_audio(
+    annotations: List[Dict[str, Any]],
+    annotation_key: str,
+    audio_file: str,
+    bucket: str,
+    key_prefix: str,
+) -> None:
     """Splits `audio_file` based on JSON-formatted `annotations`, saves exports to `key_prefix`.
 
-    Parameters
-    ----------
-    annotations : List[Dict[str, Any]]
-        JSON-formatted annotations exported by Label Studio.
-    annotation_key: str
-        Key of annotation dictionary containing timestamps and transcriptions.
-    audio_file : str
-        Pre-signed URL pointing to the audio file of the JSON annotation.
-    key_prefix : str
-        AWS S3 key prefix path to save file.
+    Args:
+        annotations (List[Dict[str, Any]]): _description_
+        annotation_key (str): JSON-formatted annotations exported by Label Studio.
+        audio_file (str): Key of annotation dictionary containing timestamps and transcriptions.
+        bucket (str): Pre-signed URL pointing to the audio file of the JSON annotation.
+        key_prefix (str): AWS S3 key prefix path to save file.
     """
     folder_name = os.path.basename(os.path.dirname(audio_file))
     language = folder_name.split("-")[0]
@@ -132,12 +128,12 @@ def split_export_audio(annotations, annotation_key, audio_file, bucket, key_pref
 def lambda_handler(event, context):
     """Event listener for S3 event and calls the split audio function.
 
-    Parameters
-    ----------
-    event : AWS Event
-        A JSON-formatted document that contains data for a Lambda function to process.
-    context : AWS Context
-        An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+    Args:
+        event (AWS Event): A JSON-formatted document that contains data for a Lambda function to process.
+        context (AWS Event): An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+
+    Raises:
+        e: Audio cannot be obtained from S3.
     """
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = unquote_plus(event["Records"][0]["s3"]["object"]["key"], encoding="utf-8")

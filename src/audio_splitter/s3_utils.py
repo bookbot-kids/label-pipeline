@@ -1,25 +1,21 @@
 import boto3
 from botocore.exceptions import ClientError
-from config import SIGNED_URL_TIMEOUT
+from src.config import SIGNED_URL_TIMEOUT
 import os
 
 s3_client = boto3.client("s3")
 
 
-def get_audio_file(bucket, key, audio_extension):
+def get_audio_file(bucket: str, key: str, audio_extension: str) -> str:
     """Get corresponding audio file of JSON annotation (`key`) from AWS S3, in `bucket`.
 
-    Parameters
-    ----------
-    bucket : str
-        Audio and JSON bucket name in S3.
-    key : str
-        JSON file key name in S3.
+    Args:
+        bucket (str): Audio and JSON bucket name in S3.
+        key (str): JSON file key name in S3.
+        audio_extension (str): Audio extension.
 
-    Returns
-    -------
-    s3_source_signed_url: str
-        Pre-signed URL pointing to the audio file of the JSON annotation.
+    Returns:
+        str: Pre-signed URL pointing to the audio file of the JSON annotation.
     """
     job_name = os.path.splitext(os.path.basename(key))[0]
     folder_name = os.path.basename(os.path.dirname(key))
@@ -39,22 +35,18 @@ def get_audio_file(bucket, key, audio_extension):
         return s3_source_signed_url
 
 
-def create_presigned_url(bucket_name, object_name, expiration=3600):
-    """Generate a presigned URL to share an S3 object
+def create_presigned_url(
+    bucket_name: str, object_name: str, expiration: int = 3600
+) -> str:
+    """Generate a presigned URL to share an S3 object.
 
-    Parameters
-    ----------
-    bucket_name : string
-        Bucket name
-    object_name : string
-        Name of object/file
-    expiration : int, optional
-        Time in seconds for the presigned URL to remain valid, by default 3600
+    Args:
+        bucket_name (str): Bucket name
+        object_name (str): Name of object/file
+        expiration (int, optional): Time in seconds for the presigned URL to remain valid. Defaults to 3600.
 
-    Returns
-    -------
-    str
-        Presigned URL as string. If error, returns None.
+    Returns:
+        str: Presigned URL as string. If error, returns `None`.
     """
     try:
         response = s3_client.generate_presigned_url(
@@ -69,19 +61,14 @@ def create_presigned_url(bucket_name, object_name, expiration=3600):
     return response
 
 
-def move_file(bucket, file, source, destination):
-    """Move `file` in `bucket` from `source` to `destination` folder
+def move_file(bucket: str, file: str, source: str, destination: str) -> None:
+    """Move `file` in `bucket` from `source` to `destination` folder.
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be moved (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be moved (without full-path).
+        source (str): Source folder in S3 bucket.
+        destination (str): Destination folder in S3 bucket.
     """
     s3_resource = boto3.resource("s3")
 
