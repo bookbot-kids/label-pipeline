@@ -27,7 +27,7 @@ For more details of each component, please check each subdirectory's README file
 
 The high-level overview of this pipeline is shown below.
 
-![](images/audio-labeling-pipeline.png)
+![](docs/images/audio-labeling-pipeline.png)
 
 ## Installation
 
