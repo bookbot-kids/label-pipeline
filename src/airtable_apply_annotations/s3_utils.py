@@ -1,18 +1,16 @@
-"""
-Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
+# Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from typing import Callable, List
 import boto3
@@ -22,19 +20,14 @@ s3_resource = boto3.resource("s3")
 s3_client = boto3.client("s3")
 
 
-def write_file(bucket: str, file_content: str, destination: str, save_file_name):
-    """Writes `file_content` to `save_file_name` to `bucket` at `destination` folder
+def write_file(bucket: str, file_content: str, destination: str, save_file_name: str):
+    """Writes `file_content` to `save_file_name` to `bucket` at `destination` folder.
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file_content : str
-        Content of file to write.
-    destination : str
-        Destination folder in S3 bucket.
-    save_file_name : str
-        Save file name
+    Args:
+        bucket (str): S3 bucket name.
+        file_content (str): Content of file to write.
+        destination (str): Destination folder in S3 bucket.
+        save_file_name (str): Save file name
     """
     save_path = f"{destination}/{save_file_name}"
     try:
@@ -44,18 +37,13 @@ def write_file(bucket: str, file_content: str, destination: str, save_file_name)
 
 
 def copy_file(bucket: str, file: str, source: str, destination: str):
-    """Copy `file` in `bucket` from `source` to `destination` folder
+    """Copy `file` in `bucket` from `source` to `destination` folder.
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be copied (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be copied (without full-path).
+        source (str): Source folder in S3 bucket.
+        destination (str): Destination folder in S3 bucket.
     """
     try:
         s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
@@ -71,16 +59,11 @@ def copy_file(bucket: str, file: str, source: str, destination: str):
 def move_file(bucket: str, file: str, source: str, destination: str):
     """Move `file` in `bucket` from `source` to `destination` folder
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be moved (without full-path).
-    source : str
-        Source folder in S3 bucket.
-    destination : str
-        Destination folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be moved (without full-path).
+        source (str): Source folder in S3 bucket.
+        destination (str): Destination folder in S3 bucket.
     """
     try:
         s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
@@ -98,16 +81,12 @@ def move_file(bucket: str, file: str, source: str, destination: str):
 
 
 def delete_file(bucket: str, file: str, source: str):
-    """Delete `file` in `bucket` from `source` folder
+    """Delete `file` in `bucket` from `source` folder.
 
-    Parameters
-    ----------
-    bucket : str
-        S3 bucket name.
-    file : str
-        Name of file to be deleted (without full-path).
-    source : str
-        Source folder in S3 bucket.
+    Args:
+        bucket (str): S3 bucket name.
+        file (str): Name of file to be deleted (without full-path).
+        source (str): Source folder in S3 bucket.
     """
     try:
         s3_resource.Object(bucket, f"{source}/{file}").delete()
@@ -126,18 +105,12 @@ def bulk_s3_actions(
 ):
     """Applies a bulk S3 CRUD action for all `files` in `sources` and optionally, `targets`.
 
-    Parameters
-    ----------
-    action : Callable
-        Function calling an S3 CRUD operation.
-    bucket : str
-        S3 bucket name.
-    files : List[str]
-        List of files in `bucket`/`sources`
-    sources : List[str]
-        Source folders in `bucket`.
-    targets : List[str], optional
-        Target folders in `bucket`, by default None
+    Args:
+        action (Callable): Function calling an S3 CRUD operation.
+        bucket (str): S3 bucket name.
+        files (List[str]): List of files in `bucket`/`sources`
+        sources (List[str]): Source folders in `bucket`.
+        targets (List[str], optional): Target folders in `bucket`. Defaults to None.
     """
     if targets:
         assert len(sources) == len(targets)

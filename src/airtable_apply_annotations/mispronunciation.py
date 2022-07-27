@@ -1,18 +1,16 @@
-"""
-Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
+# Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from typing import List, Set
 from homophones import HOMOPHONES, match_sequence
@@ -26,19 +24,13 @@ def detect_mispronunciation(
     Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
     Also handles homophones given a pre-defined list.
 
-    Parameters
-    ----------
-    ground_truth : List[str]
-        List of ground truth words.
-    transcript : List[str]
-        List of transcript words.
-    homophones : List[Set[str]]
-        List of homophone families, by default None.
+    Args:
+        ground_truth (List[str]): List of ground truth words.
+        transcript (List[str]): List of transcript words.
+        homophones (List[Set[str]], optional): List of homophone families. Defaults to None.
 
-    Returns
-    -------
-    str
-        Type of mispronunciation present. Otherwise, None.
+    Returns:
+        str: Type of mispronunciation present. Otherwise, None.
     """
     if homophones == None:
         homophones = HOMOPHONES["en"]

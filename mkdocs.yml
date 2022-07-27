@@ -21,7 +21,6 @@ theme:
         name: Switch to light mode
   features:
     - navigation.sections
-    - navigation.expand
 
 plugins:
   - search
@@ -46,5 +45,4 @@ markdown_extensions:
       custom_checkbox: true
 
 watch:
-  - src/audio_splitter
-  - src/transcribe
+  - src/

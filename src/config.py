@@ -1,16 +1,3 @@
-################
-# Label Studio #
-################
-
-# Label Studio IP host
-HOST = "http://18.141.137.45:8080"
-
-# Administrator email for Label Studio
-ADMIN_EMAIL = {"en": "adrian@bookbotkids.com", "id": "wilsonwong961@gmail.com"}
-
-# AWS S3 Storage ID for Label Studio
-STORAGE_ID = {"en": 3, "id": 2}
-
 #######
 # AWS #
 #######

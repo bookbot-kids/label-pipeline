@@ -1,18 +1,16 @@
-"""
-Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
+# Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from typing import Tuple, List, Dict, Any
 from urllib.parse import unquote_plus
@@ -53,7 +51,12 @@ def trim_audio(input_path: str, start: float, end: float) -> Tuple[bytes, bytes]
     # kaldi training format: wav, 16bit, 24khz, mono
     # ffmpeg -i in.aac -acodec pcm_s16le -ac 1 -ar 24000 out.wav
     output = ffmpeg.output(
-        aud, "pipe:", acodec="pcm_s16le", format="wav", ac=1, ar=24000,
+        aud,
+        "pipe:",
+        acodec="pcm_s16le",
+        format="wav",
+        ac=1,
+        ar=24000,
     )
     stdout, stderr = output.run_async(pipe_stdout=True, pipe_stderr=True).communicate()
     return (stdout, stderr)

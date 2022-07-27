@@ -1,18 +1,16 @@
-"""
-Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
+# Copyright 2022 [PT BOOKBOT INDONESIA](https://bookbot.id/)
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import json
 import onnxruntime
@@ -25,20 +23,21 @@ import os
 def read_audio_as_array(audio: str) -> np.ndarray:
     """Read audio from S3 url `audio`, resample to 16KHz, and return as Numpy array.
 
-    Parameters
-    ----------
-    audio : str
-        S3 audio URL.
+    Args:
+        audio (str): S3 audio URL.
 
-    Returns
-    -------
-    np.ndarray
-        Array of audio retrieved from S3.
+    Returns:
+        np.ndarray: Array of audio retrieved from S3.
     """
     # stream audio into ffmpeg
     stream = ffmpeg.input(audio)
     output = ffmpeg.output(
-        stream, "pipe:", acodec="pcm_s16le", format="wav", ac=1, ar=16_000,
+        stream,
+        "pipe:",
+        acodec="pcm_s16le",
+        format="wav",
+        ac=1,
+        ar=16_000,
     )
     stdout, _ = output.run_async(pipe_stdout=True, pipe_stderr=True).communicate()
 
@@ -56,15 +55,11 @@ def read_audio_as_array(audio: str) -> np.ndarray:
 def preprocess(audio_array: np.ndarray) -> np.ndarray:
     """Truncates/pads and normalizes audio array for classification using Wav2Vec2 model.
 
-    Parameters
-    ----------
-    audio_array : np.ndarray
-       Array of input audio.
+    Args:
+        audio_array (np.ndarray): Array of input audio.
 
-    Returns
-    -------
-    np.ndarray
-        Pre-processed audio array ready for classifier.
+    Returns:
+        np.ndarray: Pre-processed audio array ready for classifier.
     """
     if len(audio_array) > 48_000:  # truncate
         audio_array = audio_array[:48_000]
@@ -82,17 +77,12 @@ def preprocess(audio_array: np.ndarray) -> np.ndarray:
 def predict(audio_array: np.ndarray, onnx_model_path: str) -> str:
     """Makes a prediction with ONNX model given audio array.
 
-    Parameters
-    ----------
-    audio_array : np.ndarray
-        Array of audio to be predicted.
-    onnx_model_path : str
-        Path to ONNX model predictor.
+    Args:
+        audio_array (np.ndarray): Array of audio to be predicted.
+        onnx_model_path (str): Path to ONNX model predictor.
 
-    Returns
-    -------
-    str
-       Prediction, either "ADULT or "CHILD".
+    Returns:
+        str: Prediction, either "ADULT or "CHILD".
     """
     ort_session = onnxruntime.InferenceSession(onnx_model_path)
     ort_inputs = {ort_session.get_inputs()[0].name: audio_array}
@@ -113,17 +103,17 @@ def predict(audio_array: np.ndarray, onnx_model_path: str) -> str:
 def lambda_handler(event, context) -> str:
     """Event listener for S3 event and calls the daily logger function.
 
-    Parameters
-    ----------
-    event : AWS Event
-        A JSON-formatted document that contains data for a Lambda function to process.
-    context : AWS Context
-        An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+    Args:
+        event (AWS Event):
+            A JSON-formatted document that contains data for a Lambda function to process.
+        context (_type_):
+            An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
 
-    Returns
-    -------
-    str
-       String-formatted JSON object containing statusCode and prediction.
+    Raises:
+        Exception: Failed to retrieve audio.
+
+    Returns:
+        str: String-formatted JSON object containing statusCode and prediction.
     """
     try:
         if event["headers"]["Authorization"] != os.environ["API_KEY"]:
