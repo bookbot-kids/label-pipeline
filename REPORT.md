@@ -26,7 +26,26 @@ In doing so, we attained a wide spectrum of variety within our data. For instanc
 
 The data which we have received after the recording session are still raw and uncleaned, calling for data cleaning and processing step. Firstly, data that comes in are grouped into their corresponding regions. We encode these regions based on (1) language and (2) region. For instance, children reading English texts in Australia are grouped into `en-AU`, and children reading Indonesian in Indonesia are grouped into `id-ID`. In doing so, we avoid confusion between the data files and train a speech recognition model on the intended language.
 
-Afterward, we needed to filter the audio based on whether it is an adult's speech or children's speech. Ultimately, we only want children's speech as they are our intended target user. To do so, we deployed an open-source audio classifier model based on [Wav2Vec 2.0](https://arxiv.org/abs/2006.11477). This audio classifier was trained in-house and is able to distinguish between adult and children speech, with a reasonable accuracy. We served this model as an internal cloud service and is used to filter against incoming adult data.
+Afterward, we needed to filter the audio based on whether it is an adult's speech or children's speech. Ultimately, we only want children's speech as they are our intended target user. To do so, we deployed an open-source audio classifier model based on [Wav2Vec 2.0](https://arxiv.org/abs/2006.11477). This audio classifier was trained in-house and is able to distinguish between adult and children speech, with a reasonable accuracy after multiple tweaks in hyperparameters and architecture.
+
+| Model                   | Accuracy | F1-Score |
+| ----------------------- | :------: | :------: |
+| Wav2Vec2 (Baseline)     |  95.80%  |  0.9618  |
+| Wav2Vec2 XLS-R          |  94.69%  |  0.9508  |
+| Distil Wav2Vec2 (Final) |  96.03%  |  0.9639  |
+
+We served this model as an internal cloud service and is used to filter against incoming adult data.
+
+During the training of the audio classifier, we also found the following distribution within the raw incoming data:
+
+| Category            | Percentage |
+| ------------------- | :--------: |
+| Adult               |   42.8%    |
+| Child               |   43.7%    |
+| Delete (noise only) |   11.9%    |
+| Mixed (>1 speaker)  |    1.6%    |
+
+Notice that there are over 80% usable data (adult/child) from raw data.
 
 ### Transcribing and Alignment
 
@@ -36,15 +55,21 @@ The alternative would be to use a more accurate speech recognizer/transcriber, f
 
 Therefore, we opted to develop our own algorithm that incorporates both AWS Transcribe and the book texts. After being transcribed, we compared the transcript with the ground truth and looked for overlaps. Those overlaps' timestamps were extracted and used to segment relevant audios, which are finally exported. This way, the automated algorithm is ensured to be as accurate as possible as it consults both a 100% accurate ground truth text (from books) and gets confirmed by a less accurate transcript with timestamps.
 
-The segmented audios were exported as mono, 16-bit WAV files, with a sampling rate of 24 kHz. As a result, they are now usable for speech recognition training purposes.
+Finally, the segmented audios were exported as mono, 16-bit WAV files, with a sampling rate of 24 kHz. As a result, they are now usable for speech recognition training purposes.
+
+### Improving Overlapping Audio Coverage
+
+We implemented a few ways to improve the coverage of audio overlaps. Firstly, we considered the presence of homophones which may be inaccurately transcribed by AWS. By considering homophones as equal speeches, we managed to slightly increase the usable audio coverage, particularly for Indonesian recordings as homophones are common in the language.
+
+Secondly, to improve the audio quality and avoid transcribing irrelevant parts of speech, we use the OS audio processing to remove speaker audio (Bookbot's bot) from the microphone channel. This way, we are only transcribing the necessary audios and ignore additional noise.
 
 ## Result
 
 The following table summarizes the amount of clean data we have collected from this activity.
 
-| Region  | No. of Audios | Total Usable Duration | Size (GB) |
-| ------- | ------------- | --------------------- | --------- |
-| `id-ID` | 488,554       | 219 h 19 min 43 s     | 37.9      |
+| Region  | No. of Audios | Total Raw Duration | Total Usable Duration | Size (GB) |
+| ------- | ------------- | ------------------ | --------------------- | --------- |
+| `id-ID` | 488,554       | 923 h 36 min 40 s  | 219 h 19 min 43 s     | 37.9      |
 
 With this data, we were able to significantly improve our speech recognition model's performance. Initially, the model's word-error rate (WER) is around 20-25% on synthetic (adult) test sets, and it is currently 15% on real-world children's speech test set -- which is an even harder task to solve. 
 
