@@ -69,7 +69,7 @@ The following table summarizes the amount of clean data we have collected from t
 
 | Region  | No. of Audios | Total Raw Duration | Total Usable Duration | Size (GB) |
 | ------- | ------------- | ------------------ | --------------------- | --------- |
-| `id-ID` | 488,554       | 923 h 36 min 40 s  | 219 h 19 min 43 s     | 37.9      |
+| `id-ID` | 488,554       | 1145 h 50 min 0 s  | 219 h 19 min 43 s     | 49.5      |
 
 With this data, we were able to significantly improve our speech recognition model's performance. Initially, the model's word-error rate (WER) is around 20-25% on synthetic (adult) test sets, and it is currently 15% on real-world children's speech test set -- which is an even harder task to solve. 
 
