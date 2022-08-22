@@ -8,8 +8,10 @@ sys.path.append(str(directory.parent))
 from transcribe.homophones import HOMOPHONES, match_sequence
 from transcribe.mispronunciation import detect_mispronunciation, MispronunciationType
 
-def test_aligner():
-    pass
+
+# def test_aligner():
+
+#     pass
 
 
 def test_homophones():
@@ -104,4 +106,4 @@ def test_mispronunciation():
 if __name__ == "__main__":
     test_mispronunciation()
     test_homophones()
-    test_aligner()
+    # test_aligner()
