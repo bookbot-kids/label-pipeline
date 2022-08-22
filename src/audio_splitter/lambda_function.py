@@ -18,17 +18,20 @@ import os
 import json
 import ffmpeg
 from src.config import ADMIN_EMAIL
-from src.audio_splitter.airtable_logger import AirTableLogger
+
+# from src.audio_splitter.airtable_logger import AirTableLogger
 from src.audio_splitter.s3_utils import (
     s3_client,
     move_file,
     get_audio_file,
-    create_presigned_url,
+    # create_presigned_url,
 )
 
 
 def trim_audio(input_path: str, start: float, end: float) -> Tuple[bytes, bytes]:
-    """Trims audio from `input_path` from `start` to `end` (in seconds), pipes output audio stdout and stderr.
+    """Trims audio from `input_path` from `start` to `end` (in seconds), pipes output
+    audio stdout and stderr.
+
     [Source](https://github.com/kkroening/ffmpeg-python/issues/184#issuecomment-504390452).
 
     Args:
@@ -69,12 +72,14 @@ def split_export_audio(
     bucket: str,
     key_prefix: str,
 ) -> None:
-    """Splits `audio_file` based on JSON-formatted `annotations`, saves exports to `key_prefix`.
+    """Splits `audio_file` based on JSON-formatted `annotations`, saves exports to
+    `key_prefix`.
 
     Args:
         annotations (List[Dict[str, Any]]): _description_
         annotation_key (str): JSON-formatted annotations exported by Label Studio.
-        audio_file (str): Key of annotation dictionary containing timestamps and transcriptions.
+        audio_file (str): Key of annotation dictionary containing timestamps and
+                          transcriptions.
         bucket (str): Pre-signed URL pointing to the audio file of the JSON annotation.
         key_prefix (str): AWS S3 key prefix path to save file.
     """
@@ -100,7 +105,7 @@ def split_export_audio(
         except Exception as exc:
             print(exc)
 
-        # only get annotations with start and end times, ignore labels and region-wise GTs
+        # only get annotations with start and end times, ignore labels & region-wise GTs
         segments = [
             d
             for d in result
@@ -146,15 +151,18 @@ def split_export_audio(
                 print(f"Error: {exc}")
         print(f"Successfully split and exported to {key_prefix}")
     else:
-        print(f"Admin annotation not found")
+        print("Admin annotation not found")
 
 
 def lambda_handler(event, context):
     """Event listener for S3 event and calls the split audio function.
 
     Args:
-        event (AWS Event): A JSON-formatted document that contains data for a Lambda function to process.
-        context (AWS Event): An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+        event (AWS Event): A JSON-formatted document that contains data for a Lambda
+                           function to process.
+        context (AWS Event): An object that provides methods and properties that provide
+                             information about the invocation, function, and runtime
+                             environment.
 
     Raises:
         e: Audio cannot be obtained from S3.
@@ -168,7 +176,8 @@ def lambda_handler(event, context):
     try:
         response = s3_client.get_object(Bucket=bucket, Key=key)
         task = json.loads(response["Body"].read().decode("utf-8"))
-        # "predictions" if immediately correct after Transcribe, else take human "annotations"
+        # "predictions" if immediately correct after Transcribe
+        # else take human "annotations"
         annotation_key = "annotations" if "annotations" in task else "predictions"
         annotations = task[annotation_key]
         # get the corresponding audio file extension

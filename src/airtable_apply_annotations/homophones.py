@@ -16,7 +16,7 @@ from difflib import SequenceMatcher
 from typing import List, Set, Tuple
 
 """
-English Homophones: 
+English Homophones:
 - http://www.singularis.ltd.uk/bifroest/misc/homophones-list.html
 
 Indonesian Homophones:
@@ -486,7 +486,8 @@ HOMOPHONES = {
 
 
 def create_convert(*families: List[Set[str]]) -> List[List[str]]:
-    """Return a converter function that converts a list to the same list with only main words
+    """Return a converter function that converts a list to the same list with only main
+    words
 
     Args:
         *families (List[Set[str]]): List of homophone families.

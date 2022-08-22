@@ -33,7 +33,8 @@ class DisfluencyTable(AirTableS3Integration):
         super().__init__(airtable_url, filter_formula, headers)
 
     def _apply_annotation_changes_s3(self, record: Dict[str, Any]):
-        """Applies changes in an S3 directory based on an AirTable `record`'s disfluency verdict.
+        """Applies changes in an S3 directory based on an AirTable `record`'s disfluency
+        verdict.
 
         Args:
             record (Dict[str, Any]): An AirTable record/row.
@@ -81,7 +82,8 @@ class DisfluencyTable(AirTableS3Integration):
             write_file(self.bucket, transcript, save_path, f"{job_name}.txt")
 
     def _finalize_records(self, records: List[Dict[str, Any]]) -> str:
-        """Finalizes disfluency records by marking "AWS" column as `True` and updating disfluency.
+        """Finalizes disfluency records by marking "AWS" column as `True` and updating
+        disfluency.
 
         Args:
             records (List[Dict[str, Any]]): AirTable records.

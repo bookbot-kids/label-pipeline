@@ -52,8 +52,11 @@ def lambda_handler(event, context):
     """Event listener for S3 event and calls the daily logger function.
 
     Args:
-        event (AWS Event): A JSON-formatted document that contains data for a Lambda function to process.
-        context (AWS Context): An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+        event (AWS Event): A JSON-formatted document that contains data for a Lambda
+                           function to process.
+        context (AWS Context): An object that provides methods and properties that
+                               provide information about the invocation, function,
+                               and runtime environment.
     """
     main()
 

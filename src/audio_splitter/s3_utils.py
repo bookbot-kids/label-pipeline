@@ -57,7 +57,8 @@ def create_presigned_url(
     Args:
         bucket_name (str): Bucket name
         object_name (str): Name of object/file
-        expiration (int, optional): Time in seconds for the presigned URL to remain valid. Defaults to 3600.
+        expiration (int, optional): Time in seconds for the presigned URL to remain
+                                    valid. Defaults to 3600.
 
     Returns:
         str: Presigned URL as string. If error, returns `None`.
@@ -94,5 +95,5 @@ def move_file(bucket: str, file: str, source: str, destination: str) -> None:
         print(
             f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
         )
-    except Exception as exc:
+    except Exception:
         print(f"{bucket}/{source}/{file} not available")

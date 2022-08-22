@@ -32,7 +32,7 @@ def write_file(bucket: str, file_content: str, destination: str, save_file_name:
     save_path = f"{destination}/{save_file_name}"
     try:
         s3_client.put_object(Body=file_content, Bucket=bucket, Key=save_path)
-    except ClientError as exc:
+    except ClientError:
         return
 
 
@@ -50,9 +50,10 @@ def copy_file(bucket: str, file: str, source: str, destination: str):
             CopySource=f"{bucket}/{source}/{file}"
         )
         print(
-            f"Copied file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+            f"Copied file from {bucket}/{source}/{file} to",
+            f"{bucket}/{destination}/{file}",
         )
-    except ClientError as exc:
+    except ClientError:
         return
 
 
@@ -70,12 +71,10 @@ def move_file(bucket: str, file: str, source: str, destination: str):
             CopySource=f"{bucket}/{source}/{file}"
         )
         s3_resource.Object(bucket, f"{source}/{file}").delete()
-        # print(
-        #     f"Moved file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
-        # )
     except ClientError as exc:
         print(
-            f"Failed to move file {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+            f"Failed to move file {bucket}/{source}/{file} to",
+            f"{bucket}/{destination}/{file}",
         )
         print(exc)
 

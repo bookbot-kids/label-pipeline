@@ -28,7 +28,7 @@ class MispronunciationType(Enum):
 
 class Mispronunciation:
     """
-    A class to represent a Mispronunciation. 
+    A class to represent a Mispronunciation.
     Contains attributes which holds the type and differences.
 
     Arguments:
@@ -37,7 +37,8 @@ class Mispronunciation:
         language (str): Language of audio.
         type (MispronunciationType): Type of mispronunciation/disfluency present.
         lists (Tuple[List[str], List[str]]): Input list of strings taken for comparison.
-        differences (Tuple[List[str], List[str]]): Differences of list of strings that resulted in the type verdict.
+        differences (Tuple[List[str], List[str]]): Differences of list of strings that
+                                                   resulted in the type verdict.
     """
 
     def __init__(
@@ -51,8 +52,10 @@ class Mispronunciation:
 
         Args:
             type (MispronunciationType): Type of mispronunciation/disfluency present.
-            lists (Tuple[List[str], List[str]]): Input list of strings taken for comparison.
-            differences (Tuple[List[str], List[str]]): Differences of list of strings that resulted in the type verdict.
+            lists (Tuple[List[str], List[str]]): Input list of strings taken for
+                                                 comparison.
+            differences (Tuple[List[str], List[str]]): Differences of list of strings
+                                                    that resulted in the type verdict.
             opcodes (List[Tuple[str, int, int, int, int]]): Opcodes from `diff` library.
         """
         self.job_name = None
@@ -64,8 +67,7 @@ class Mispronunciation:
         self.opcodes = opcodes
 
     def log_to_airtable(self):
-        """Logs mispronunciation (`self`) to AirTable.
-        """
+        """Logs mispronunciation (`self`) to AirTable."""
 
         def _pprint(list_: List) -> str:
             if len(list_) == 0:
@@ -139,7 +141,9 @@ def remove_fillers(word: str) -> bool:
 def detect_mispronunciation(
     ground_truth: List[str], transcript: List[str], homophones: List[Set[str]] = None
 ) -> Mispronunciation:
-    """Detects if the pair of ground truth and transcript is considered as a mispronunciation.
+    """Detects if the pair of ground truth and transcript is considered as a
+    mispronunciation.
+
     We define a mispronunciation to be either an addition (A) / substitution (S).
     Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
     Also handles homophones given a pre-defined list.
@@ -147,11 +151,12 @@ def detect_mispronunciation(
     Args:
         ground_truth (List[str]): List of ground truth words.
         transcript (List[str]): List of transcript words.
-        homophones (List[Set[str]], optional): List of homophone families. Defaults to None.
+        homophones (List[Set[str]], optional): List of homophone families. Defaults
+                                               to None.
 
     Returns:
         Mispronunciation: Object of mispronunciation present. Otherwise, `None`.
-        
+
     Examples
     -------------------------------------------------------------
     | # | Ground Truth       | Transcript             | Verdict |
@@ -179,7 +184,7 @@ def detect_mispronunciation(
 
     DELETION if:
 
-    - zero transcript residue, >1 ground truth residue 
+    - zero transcript residue, >1 ground truth residue
         - all spoken transcripts are correct, but some words are missing
     - more residue in ground truth than in transcript
         - less strict condition than above
@@ -188,7 +193,8 @@ def detect_mispronunciation(
     ADDITION if:
 
     - zero ground truth residue, >1 transcript residue
-        - all words in ground truth are perfectly spoken, but additional words are present
+        - all words in ground truth are perfectly spoken, but additional words are
+        present
 
     SUBSTITUTION if:
 
@@ -200,7 +206,7 @@ def detect_mispronunciation(
     - more residue in transcript than in ground truth
         - with at least 1 match
     """
-    if homophones == None:
+    if homophones is None:
         homophones = HOMOPHONES["en"]
 
     transcript = list(filter(remove_fillers, transcript))
@@ -243,6 +249,7 @@ def detect_mispronunciation(
         return mispronunciation  # addition & substitution
     else:
         # in cases where there is less spoken words (transcript) compared to GT,
-        # we assume that there is mostly deletion, although it may possibly contain substitutions.
-        # we think, the transcript thus contain little to no information that may be useful for training.
+        # we assume that there is mostly deletion, although it may contain substitutions
+        # we think, the transcript thus contain little to no information that may be
+        # useful for training.
         return None

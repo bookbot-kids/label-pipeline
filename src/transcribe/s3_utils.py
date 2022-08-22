@@ -38,7 +38,8 @@ def move_file(bucket: str, file: str, source: str, destination: str):
         s3_resource.Object(bucket, f"{source}/{file}").delete()
     except Exception as exc:
         print(
-            f"Failed to move file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+            f"Failed to move file from {bucket}/{source}/{file} to",
+            f"{bucket}/{destination}/{file}",
         )
         print(exc)
     else:
@@ -61,13 +62,15 @@ def copy_file(bucket: str, file: str, source: str, destination: str):
         s3_resource.Object(bucket, f"{destination}/{file}").copy_from(
             CopySource=f"{bucket}/{source}/{file}"
         )
-    except Exception as exc:
+    except Exception:
         print(
-            f"Failed to copy file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+            f"Failed to copy file from {bucket}/{source}/{file} to",
+            f"{bucket}/{destination}/{file}",
         )
     else:
         print(
-            f"Copied file from {bucket}/{source}/{file} to {bucket}/{destination}/{file}"
+            f"Copied file from {bucket}/{source}/{file} to",
+            f"{bucket}/{destination}/{file}",
         )
 
 
@@ -111,7 +114,8 @@ def create_presigned_url(
     Args:
         bucket_name (str): Bucket name
         object_name (str): Name of object/file
-        expiration (int, optional): Time in seconds for the presigned URL to remain valid. Defaults to 3600.
+        expiration (int, optional): Time (seconds) for the presigned URL to remain valid
+                                    Defaults to 3600.
 
     Returns:
         Any: Presigned URL as string. If error, returns `None`.
@@ -127,4 +131,3 @@ def create_presigned_url(
         return None
 
     return response
-

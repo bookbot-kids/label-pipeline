@@ -19,7 +19,9 @@ from homophones import HOMOPHONES, match_sequence
 def detect_mispronunciation(
     ground_truth: List[str], transcript: List[str], homophones: List[Set[str]] = None
 ) -> str:
-    """Detects if the pair of ground truth and transcript is considered as a mispronunciation.
+    """Detects if the pair of ground truth and transcript is considered as a
+    mispronunciation.
+
     We define a mispronunciation to be either an addition (A) / substitution (S).
     Ignores deletion (D), 100% match (M) and single-word GT (X), returning `None`.
     Also handles homophones given a pre-defined list.
@@ -27,12 +29,13 @@ def detect_mispronunciation(
     Args:
         ground_truth (List[str]): List of ground truth words.
         transcript (List[str]): List of transcript words.
-        homophones (List[Set[str]], optional): List of homophone families. Defaults to None.
+        homophones (List[Set[str]], optional): List of homophone families. Defaults to
+        None.
 
     Returns:
         str: Type of mispronunciation present. Otherwise, None.
     """
-    if homophones == None:
+    if homophones is None:
         homophones = HOMOPHONES["en"]
 
     if len(ground_truth) == 1 or len(transcript) == 0:

@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import os
-import re, string
+import re
+import string
 from typing import Dict, List, Tuple
 from urllib.parse import unquote_plus
 
@@ -60,7 +61,8 @@ def get_ground_truth(ground_truth_filename_prefix: str) -> Tuple[str, str]:
         ground_truth_filename_prefix (str): Prefix of ground truth file name.
 
     Returns:
-        Tuple[str, str]: Pair of [ground truth string, ground truth file extension], otherwise `[None, None]`.
+        Tuple[str, str]: Pair of [ground truth string, ground truth file extension],
+            otherwise `[None, None]`.
     """
     txt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.txt")
     srt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.srt")
@@ -77,7 +79,8 @@ def get_ground_truth(ground_truth_filename_prefix: str) -> Tuple[str, str]:
 def classify_mispronunciation(
     results: Dict[str, List], ground_truth: str, language: str
 ) -> Mispronunciation:
-    """Classifies if a transcription result and ground truth text is a case of mispronunciation.
+    """Classifies if a transcription result and ground truth text is a case of
+    mispronunciation.
 
     Args:
         results (Dict[str, List]): Resultant output received from AWS Transcribe.
@@ -131,8 +134,12 @@ def lambda_handler(event, context):
     """Event listener for S3 event and calls Transcribe job.
 
     Args:
-        event (AWS Event): A JSON-formatted document that contains data for a Lambda function to process.
-        context (AWS Context): An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+        event (AWS Event):
+            A JSON-formatted document that contains data for a Lambda function
+            to process.
+        context (AWS Context):
+            An object that provides methods and properties that provide information
+            about the invocation, function, and runtime environment.
     """
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = unquote_plus(event["Records"][0]["s3"]["object"]["key"], encoding="utf-8")
@@ -140,7 +147,8 @@ def lambda_handler(event, context):
 
 
 def main(audio_file: str):
-    """Main function to run Transcribe, generate Label Studio JSON-annotation, and saves JSON to S3.
+    """Main function to run Transcribe, generate Label Studio JSON-annotation,
+    and saves JSON to S3.
 
     Args:
         audio_file (str): Audio filename with complete S3 path.
@@ -178,14 +186,15 @@ def main(audio_file: str):
     mispronunciation = None
 
     if status == TranscribeStatus.SUCCESS:
-        if ground_truth != None:
+        if ground_truth is not None:
             # classify for mispronunciation
             mispronunciation = classify_mispronunciation(
                 results, ground_truth, language
             )
             # add ground truth to Label Studio JSON-annotated task (for reference)
             task["data"]["text"] = ground_truth
-            # add region-wise transcriptions and ground truth (for convenience of labeler)
+            # add region-wise transcriptions and ground truth (for convenience
+            # of labeler)
             task["predictions"][0]["result"] += overlapping_segments(
                 results, ground_truth, language, max_repeats=3
             )

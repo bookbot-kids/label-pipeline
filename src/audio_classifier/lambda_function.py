@@ -105,9 +105,11 @@ def lambda_handler(event, context) -> str:
 
     Args:
         event (AWS Event):
-            A JSON-formatted document that contains data for a Lambda function to process.
+            A JSON-formatted document that contains data for
+            a Lambda function to process.
         context (_type_):
-            An object that provides methods and properties that provide information about the invocation, function, and runtime environment.
+            An object that provides methods and properties that provide information
+            about the invocation, function, and runtime environment.
 
     Raises:
         Exception: Failed to retrieve audio.
@@ -126,7 +128,7 @@ def lambda_handler(event, context) -> str:
         if audio_array.size == 0:
             print(f"Audio {audio_url} is empty.")
             raise Exception
-    except Exception as exc:
+    except Exception:
         response = {
             "statusCode": 400,
             "body": {"prediction": None, "error": "Failed to retrieve audio."},
@@ -152,8 +154,9 @@ def lambda_handler(event, context) -> str:
 
 
 if __name__ == "__main__":
+    test_audio = "386cc312-5a30-41a6-a21b-c2184c225260_1636982327979"
     payload = {
-        "audio_url": "s3://bookbot-speech/archive/id-id/386cc312-5a30-41a6-a21b-c2184c225260_1636982327979.aac"
+        "audio_url": f"s3://bookbot-speech/archive/id-id/{test_audio}.aac"
     }
     event = {"body": json.dumps(payload)}
     response = lambda_handler(event, None)

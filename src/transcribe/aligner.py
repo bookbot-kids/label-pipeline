@@ -23,7 +23,8 @@ def init_label_studio_annotation() -> List[Dict[str, Any]]:
     """Initializes a pair of dictionaries in Label Studio annotation format.
 
     Returns:
-        List[Dict[str, Any]]: List containing pair of dictionaries in Label Studio JSON annotation format.
+        List[Dict[str, Any]]: List containing pair of dictionaries in Label Studio JSON
+        annotation format.
     """
     return [
         {
@@ -60,7 +61,8 @@ def sentencewise_segment(
         ground_truth (str): Ground truth text for the corresponding annotation.
 
     Returns:
-        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for Label Studio.
+        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for
+        Label Studio.
     """
     output = []
 
@@ -117,16 +119,19 @@ def sentencewise_segment(
 def overlapping_segments(
     results: Dict[str, List], ground_truth: str, language: str, max_repeats: int = None
 ) -> List[Dict[str, Any]]:
-    """Segments Amazon Transcribe raw output to individual sentences based on overlapping regions.
+    """Segments Amazon Transcribe raw output to individual sentences based on
+    overlapping regions.
 
     Args:
         results (Dict[str, List]): Resultant output received from AWS Transcribe.
         ground_truth (str): Ground truth text for the corresponding annotation.
         language (str): Language of the transcript-ground truth pair.
-        max_repeats (int, optional): Maximum number of repeats when detecting for overlaps. Defaults to None.
+        max_repeats (int, optional): Maximum number of repeats when detecting for
+                                     overlaps. Defaults to None.
 
     Returns:
-        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for Label Studio.
+        List[Dict[str, Any]]: List of dictionaries with segment-wise annotations for
+        Label Studio.
     """
     output = []
     sentence_counter = 0
@@ -137,7 +142,9 @@ def overlapping_segments(
 
     ground_truth = ground_truth.lower().strip().replace("-", " ").split(" ")
 
-    # gets approximate number of repeats for case where len(ground_truth) << len(transcripts)
+    # gets approximate number of repeats for case where
+    # len(ground_truth) << len(transcripts)
+
     # multiplier also manually tweakable if needed, e.g. 3
     multiplier = (
         max_repeats if max_repeats else ceil(len(transcripts) / len(ground_truth))

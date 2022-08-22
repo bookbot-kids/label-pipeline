@@ -19,7 +19,7 @@ import json
 
 class AirTableLogger:
     """
-    A utility class to assist AirTable logging purposes. 
+    A utility class to assist AirTable logging purposes.
     Contains attributes which holds the audio, ground truth, transcript, and language.
 
     Attributes:
@@ -31,7 +31,11 @@ class AirTableLogger:
     """
 
     def __init__(
-        self, job_name: str, audio_url: str, transcript: str, language: str,
+        self,
+        job_name: str,
+        audio_url: str,
+        transcript: str,
+        language: str,
     ):
         """Constructor for the `AirTableLogger` class.
 
@@ -48,8 +52,7 @@ class AirTableLogger:
         self.category = "CHILD"
 
     def log_to_airtable(self):
-        """Logs `self` attributes to AirTable.
-        """
+        """Logs `self` attributes to AirTable."""
         fields = {
             "Job Name": self.job_name,
             "Audio": [{"url": self.audio_url}],

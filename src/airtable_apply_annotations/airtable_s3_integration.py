@@ -33,7 +33,10 @@ class AirTableS3Integration:
         self.extensions = EXTENSIONS
 
     def process_table_data(self):
-        """Gets AirTable data and applies annotation changes to S3 and finalizes the record."""
+        """
+        Gets AirTable data and applies annotation changes to S3 and finalizes the
+        record.
+        """
         records, offset = [], 0
         while True:
             try:
@@ -82,7 +85,8 @@ class AirTableS3Integration:
                 print(f"Failed to patch {payload}")
 
     def _apply_annotation_changes_s3(self, record: Dict[str, Any]):
-        """Applies changes in an S3 directory based on an AirTable `record`'s annotation verdict.
+        """Applies changes in an S3 directory based on an AirTable `record`'s annotation
+        verdict.
 
         Args:
             record (Dict[str, Any]): An AirTable record/row.

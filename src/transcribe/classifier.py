@@ -32,7 +32,8 @@ class SpeakerClassifier:
             audio_url (str): S3 URL pointing to the audio.
         """
         self.audio_url = audio_url
-        self.url = "https://ety3wzgylf.execute-api.ap-southeast-1.amazonaws.com/audio-classifier-adult-child"
+        api = "audio-classifier-adult-child"
+        self.url = f"https://ety3wzgylf.execute-api.ap-southeast-1.amazonaws.com/{api}"
         self.headers = {
             "Authorization": os.environ["API_KEY"],
             "Content-Type": "application/json",
@@ -61,9 +62,9 @@ class SpeakerClassifier:
 
 
 if __name__ == "__main__":
+    test_audio = "386cc312-5a30-41a6-a21b-c2184c225260_1636982327979"
     prediction = SpeakerClassifier(
-        "s3://bookbot-speech/archive/id-id/386cc312-5a30-41a6-a21b-c2184c225260_1636982327979.aac"
+        f"s3://bookbot-speech/archive/id-id/{test_audio}.aac"
     ).predict()
 
     print(prediction)
-
