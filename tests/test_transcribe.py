@@ -1,8 +1,9 @@
 import sys
-from path import Path
+from pathlib import Path
+import os
 
-directory = Path(__file__).abspath()
-sys.path.append(directory.parent.parent)
+directory = Path(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(str(directory.parent))
 
 from transcribe.homophones import HOMOPHONES, match_sequence
 from transcribe.mispronunciation import detect_mispronunciation, MispronunciationType
