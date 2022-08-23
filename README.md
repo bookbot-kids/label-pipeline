@@ -7,6 +7,9 @@
     <a href="https://bookbot-kids.github.io/label-pipeline/">
         <img alt="Documentation" src="https://img.shields.io/website/http/bookbot-kids.github.io/label-pipeline.svg?down_color=red&down_message=offline&up_message=online">
     </a>
+    <a href="https://github.com/bookbot-kids/label-pipeline/actions/workflows/tests.yml">
+        <img alt="Tests" src="https://github.com/bookbot-kids/label-pipeline/actions/workflows/tests.yml/badge.svg">
+    </a>
     <a href="https://github.com/bookbot-kids/label-pipeline/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg">
     </a>
