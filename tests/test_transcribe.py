@@ -7,11 +7,177 @@ sys.path.append(str(directory.parent))
 
 from transcribe.homophones import HOMOPHONES, match_sequence
 from transcribe.mispronunciation import detect_mispronunciation, MispronunciationType
+from transcribe.aligner import overlapping_segments
 
 
-# def test_aligner():
+def test_aligner():
+    test_text = {
+        "items": [
+            {
+                "start_time": "0.14",
+                "end_time": "1.55",
+                "alternatives": [{"confidence": "1.0", "content": "Assalamualaikum"}],
+                "type": "pronunciation",
+            },
+            {
+                "alternatives": [{"confidence": "0.0", "content": "."}],
+                "type": "punctuation",
+            },
+            {
+                "start_time": "2.04",
+                "end_time": "2.38",
+                "alternatives": [{"confidence": "0.3072", "content": "Wow"}],
+                "type": "pronunciation",
+            },
+            {
+                "alternatives": [{"confidence": "0.0", "content": "!"}],
+                "type": "punctuation",
+            },
+            {
+                "start_time": "2.94",
+                "end_time": "3.25",
+                "alternatives": [{"confidence": "0.4046", "content": "Wow"}],
+                "type": "pronunciation",
+            },
+            {
+                "alternatives": [{"confidence": "0.0", "content": "!"}],
+                "type": "punctuation",
+            },
+            {
+                "start_time": "6.69",
+                "end_time": "6.88",
+                "alternatives": [{"confidence": "1.0", "content": "Saya"}],
+                "type": "pronunciation",
+            },
+            {
+                "start_time": "6.88",
+                "end_time": "7.17",
+                "alternatives": [{"confidence": "0.9461", "content": "enggak"}],
+                "type": "pronunciation",
+            },
+        ],
+    }
 
-#     pass
+    # case 1: ground truth aligned with aws transcribe results
+    assert overlapping_segments(
+        test_text, "Assalamualaikum Wow Saya enggak", language="id"
+    ) == [
+        {
+            "value": {"start": 0.14, "end": 1.55, "text": ["assalamualaikum"]},
+            "id": "sentence_0",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 0.14, "end": 1.55, "labels": ["Sentence"]},
+            "id": "sentence_0",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": 0.14, "end": 1.55, "text": ["assalamualaikum"]},
+            "id": "sentence_0",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 2.04, "end": 2.38, "text": ["wow"]},
+            "id": "sentence_1",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 2.04, "end": 2.38, "labels": ["Sentence"]},
+            "id": "sentence_1",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": 2.04, "end": 2.38, "text": ["wow"]},
+            "id": "sentence_1",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "text": ["saya enggak"]},
+            "id": "sentence_2",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "labels": ["Sentence"]},
+            "id": "sentence_2",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "text": ["saya enggak"]},
+            "id": "sentence_2",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+    ]
+
+    # case 2: slightly off alignment with ground truth
+    assert overlapping_segments(test_text, "Wow Saya enggak mau", language="id") == [
+        {
+            "value": {"start": 2.04, "end": 2.38, "text": ["wow"]},
+            "id": "sentence_0",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 2.04, "end": 2.38, "labels": ["Sentence"]},
+            "id": "sentence_0",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": 2.04, "end": 2.38, "text": ["wow"]},
+            "id": "sentence_0",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "text": ["saya enggak"]},
+            "id": "sentence_1",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "labels": ["Sentence"]},
+            "id": "sentence_1",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": 6.69, "end": 7.17, "text": ["saya enggak"]},
+            "id": "sentence_1",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+    ]
+
+    # case 3: alignments are totally off
+    assert (
+        overlapping_segments(test_text, "ini contoh alignment salah", language="id")
+        == []
+    )
 
 
 def test_homophones():
@@ -106,4 +272,4 @@ def test_mispronunciation():
 if __name__ == "__main__":
     test_mispronunciation()
     test_homophones()
-    # test_aligner()
+    test_aligner()
