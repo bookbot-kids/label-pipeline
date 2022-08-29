@@ -12,6 +12,9 @@
     <a href="https://github.com/bookbot-kids/label-pipeline/actions/workflows/tests.yml">
         <img alt="Tests" src="https://github.com/bookbot-kids/label-pipeline/actions/workflows/tests.yml/badge.svg">
     </a>
+    <a href="https://codecov.io/gh/bookbot-kids/label-pipeline">
+        <img alt="Code Coverage" src="https://img.shields.io/codecov/c/github/bookbot-kids/label-pipeline">
+    </a>
     <a href="https://github.com/bookbot-kids/label-pipeline/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg">
     </a>
