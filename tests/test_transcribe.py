@@ -3,7 +3,20 @@ from src.transcribe.mispronunciation import (
     detect_mispronunciation,
     MispronunciationType,
 )
-from src.transcribe.aligner import overlapping_segments
+from src.transcribe.aligner import overlapping_segments, init_label_studio_annotation
+from src.transcribe.srt2txt import srt2txt
+from src.transcribe.s3_utils import (
+    move_file,
+    copy_file,
+    get_object,
+    put_object,
+    create_presigned_url,
+)
+from src.transcribe.transcribe import (
+    TranscribeStatus,
+    get_job,
+    create_task,
+)
 
 
 def test_aligner():
@@ -175,6 +188,30 @@ def test_aligner():
         == []
     )
 
+    assert init_label_studio_annotation() == [
+        {
+            "value": {"start": -1, "end": -1, "text": []},
+            "id": "",
+            "from_name": "transcription",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+        {
+            "value": {"start": -1, "end": -1, "labels": ["Sentence"]},
+            "id": "",
+            "from_name": "labels",
+            "to_name": "audio",
+            "type": "labels",
+        },
+        {
+            "value": {"start": -1, "end": -1, "text": []},
+            "id": "",
+            "from_name": "region-ground-truth",
+            "to_name": "audio",
+            "type": "textarea",
+        },
+    ]
+
 
 def test_homophones():
     assert match_sequence(
@@ -251,10 +288,10 @@ def test_mispronunciation():
         detect_mispronunciation(
             ["vain", "is", "a", "skeleton"],
             ["vein", "is", "a", "skeleton"],
-            HOMOPHONES["en"],
         )
         is None
     )
+
     assert (
         detect_mispronunciation(
             ["skel"],
@@ -262,4 +299,63 @@ def test_mispronunciation():
             HOMOPHONES["en"],
         )
         is None
+    )
+
+    assert (
+        detect_mispronunciation(
+            ["skel", "is"],
+            ["bob", "are"],
+            HOMOPHONES["en"],
+        )
+        is None
+    )
+
+
+def test_srt2txt():
+    assert (
+        srt2txt(
+            """
+1
+00:05:00,400 --> 00:05:15,300
+This is an example of
+a subtitle.
+    """
+        )
+        == "This is an example of a subtitle."
+    )
+
+    assert srt2txt("[Music]") == ""
+
+
+def test_transcribe(transcribe_client):
+    assert get_job(transcribe_client, "JOB_NAME") is None
+    assert create_task("s3://FILE_URI", {}) == (
+        TranscribeStatus.FAILED,
+        None,
+        {
+            "data": {"audio": "s3://FILE_URI"},
+            "predictions": [
+                {
+                    "model_version": "amazon_transcribe",
+                    "result": [
+                        {
+                            "from_name": "transcription",
+                            "to_name": "audio",
+                            "type": "textarea",
+                            "value": {"text": [""]},
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+
+
+def test_s3_utils():
+    assert move_file("BUCKET", "FILE", "SOURCE", "DESTINATION") is None
+    assert copy_file("BUCKET", "FILE", "SOURCE", "DESTINATION") is None
+    assert get_object("BUCKET", "KEY") is None
+    assert put_object("OBJECT", "BUCKET", "KEY") is None
+    assert create_presigned_url("BUCKET", "OBJECT").startswith(
+        "https://s3.ap-southeast-1.amazonaws.com/BUCKET/OBJECT?AWSAccessKeyId="
     )

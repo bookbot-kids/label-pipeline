@@ -18,9 +18,10 @@ import boto3
 import time
 import requests
 from botocore.exceptions import ClientError
-from config import REGION
 
-transcribe_client = boto3.client("transcribe", region_name=REGION)
+# from src.config import REGION
+
+transcribe_client = boto3.client("transcribe", region_name="ap-southeast-1")
 
 
 class TranscribeStatus(Enum):

@@ -14,9 +14,6 @@
 
 from typing import List, Set, Tuple
 from enum import Enum, auto
-import os
-import json
-import requests
 from src.transcribe.homophones import HOMOPHONES, match_sequence
 
 
@@ -65,64 +62,6 @@ class Mispronunciation:
         self.lists = lists
         self.differences = differences
         self.opcodes = opcodes
-
-    def log_to_airtable(self):
-        """Logs mispronunciation (`self`) to AirTable."""
-
-        def _pprint(list_: List) -> str:
-            if len(list_) == 0:
-                return " "
-            return ", ".join(list_)
-
-        def _get_changes(self: Mispronunciation) -> str:
-            ground_truth, transcript = self.lists
-            ground_truth_diff, transcript_diff = self.differences
-
-            if self.type == MispronunciationType.ADDITION_SUBSTITUTION:  # A & S
-                changes = [
-                    f"[{_pprint(ground_truth[j1:j2])} → {_pprint(transcript[i1:i2])}]"
-                    for tag, i1, i2, j1, j2 in self.opcodes
-                    if tag == "replace" or tag == "delete"
-                ]
-                return _pprint(changes)
-            elif self.type == MispronunciationType.ADDITION:  # A
-                return f"[{_pprint(ground_truth_diff)} → {_pprint(transcript_diff)}]"
-            else:  # S
-                substitutions = [
-                    f"[{ground_truth_diff[idx]} → {transcript_diff[idx]}]"
-                    for idx in range(len(transcript_diff))
-                ]
-                return _pprint(substitutions)
-
-        fields = {
-            "Job Name": self.job_name,
-            "Audio": [{"url": self.audio_url}],
-            "Language": self.language,
-            "Ground Truth": " ".join(self.lists[0]),
-            "Transcript": " ".join(self.lists[1]),
-            "Δ Ground Truth": _pprint(self.differences[0]),
-            "Δ Transcript": _pprint(self.differences[1]),
-            "Δ Changes": _get_changes(self),
-            "Disfluency": self.type.name,
-        }
-
-        airtable_url = "https://api.airtable.com/v0/appufoncGJbOg7w4Z/Master"
-        api_key = os.environ["AIRTABLE_API_KEY"]
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = json.dumps({"records": [{"fields": fields}]})
-
-        try:
-            response = requests.post(airtable_url, headers=headers, data=payload)
-        except Exception as exc:
-            print(exc)
-        else:
-            if response.ok:
-                print("Successfully logged to AirTable")
-            else:
-                print("Failed to log to AirTable")
 
 
 def remove_fillers(word: str) -> bool:

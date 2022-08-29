@@ -231,7 +231,6 @@ def main(audio_file: str):
             f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
             SIGNED_URL_TIMEOUT,
         )
-        mispronunciation.log_to_airtable()
 
     # export JSON to respective folders in S3
     put_object(task, BUCKET, save_path)
