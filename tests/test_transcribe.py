@@ -1,13 +1,9 @@
-import sys
-from pathlib import Path
-import os
-
-directory = Path(os.path.abspath(os.path.dirname(__file__)))
-sys.path.append(str(directory.parent))
-
-from transcribe.homophones import HOMOPHONES, match_sequence
-from transcribe.mispronunciation import detect_mispronunciation, MispronunciationType
-from transcribe.aligner import overlapping_segments
+from src.transcribe.homophones import HOMOPHONES, match_sequence
+from src.transcribe.mispronunciation import (
+    detect_mispronunciation,
+    MispronunciationType,
+)
+from src.transcribe.aligner import overlapping_segments
 
 
 def test_aligner():
