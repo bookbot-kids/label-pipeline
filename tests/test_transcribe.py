@@ -267,9 +267,3 @@ def test_mispronunciation():
         )
         is None
     )
-
-
-if __name__ == "__main__":
-    test_mispronunciation()
-    test_homophones()
-    test_aligner()
