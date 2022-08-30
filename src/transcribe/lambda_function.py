@@ -23,11 +23,12 @@ from src.transcribe.homophones import HOMOPHONES
 from src.transcribe.mispronunciation import detect_mispronunciation, Mispronunciation
 from src.transcribe.srt2txt import srt2txt
 from src.transcribe.classifier import SpeakerClassifier
-from src.transcribe.transcribe import transcribe_file, TranscribeStatus
+from src.transcribe.transcribe import TranscribeClient, TranscribeStatus
 from src.transcribe.s3_utils import S3Client
 from src.transcribe.aligner import overlapping_segments
 
 s3_client = S3Client(region_name="ap-southeast-1")
+transcribe_client = TranscribeClient(region_name="ap-southeast-1")
 
 
 def get_language_code(filename: str) -> str:
@@ -175,7 +176,7 @@ def main(audio_file: str):
             )
         return
 
-    status, results, task = transcribe_file(
+    status, results, task = transcribe_client.transcribe_file(
         job_name,
         audio_file,
         media_format=EXT2FORMAT[audio_extension],
