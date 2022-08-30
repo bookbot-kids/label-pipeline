@@ -1,7 +1,7 @@
 import os
 import pytest
 import boto3
-from moto import mock_transcribe
+from moto import mock_transcribe, mock_s3
 
 
 @pytest.fixture
@@ -15,5 +15,12 @@ def aws_credentials():
 @pytest.fixture()
 def transcribe_client(aws_credentials):
     with mock_transcribe():
-        conn = boto3.client("transcribe", region_name="ap-southeast-1")
+        conn = boto3.client("transcribe", region_name="us-east-1")
+        yield conn
+
+
+@pytest.fixture
+def s3_client(aws_credentials):
+    with mock_s3():
+        conn = boto3.client("s3", region_name="us-east-1")
         yield conn

@@ -24,14 +24,10 @@ from src.transcribe.mispronunciation import detect_mispronunciation, Mispronunci
 from src.transcribe.srt2txt import srt2txt
 from src.transcribe.classifier import SpeakerClassifier
 from src.transcribe.transcribe import transcribe_file, TranscribeStatus
-from src.transcribe.s3_utils import (
-    copy_file,
-    move_file,
-    create_presigned_url,
-    get_object,
-    put_object,
-)
+from src.transcribe.s3_utils import S3Client
 from src.transcribe.aligner import overlapping_segments
+
+s3_client = S3Client(region_name="ap-southeast-1")
 
 
 def get_language_code(filename: str) -> str:
@@ -64,8 +60,12 @@ def get_ground_truth(ground_truth_filename_prefix: str) -> Tuple[str, str]:
         Tuple[str, str]: Pair of [ground truth string, ground truth file extension],
             otherwise `[None, None]`.
     """
-    txt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.txt")
-    srt_transcript_file = get_object(BUCKET, f"{ground_truth_filename_prefix}.srt")
+    txt_transcript_file = s3_client.get_object(
+        BUCKET, f"{ground_truth_filename_prefix}.txt"
+    )
+    srt_transcript_file = s3_client.get_object(
+        BUCKET, f"{ground_truth_filename_prefix}.srt"
+    )
 
     # if txt exists
     if txt_transcript_file:
@@ -167,7 +167,7 @@ def main(audio_file: str):
     if speaker_type == "ADULT":
         print("Adult audio detected. Archiving audio.")
         for ext in [audio_extension, ground_truth_ext]:
-            move_file(
+            s3_client.move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
                 f"dropbox/{folder_name}",
@@ -204,7 +204,7 @@ def main(audio_file: str):
         save_path = f"archive/{folder_name}/{job_name}.json"
         # move audios to `archive`
         for ext in [audio_extension, ground_truth_ext]:
-            move_file(
+            s3_client.move_file(
                 BUCKET,
                 f"{job_name}.{ext}",
                 f"dropbox/{folder_name}",
@@ -216,7 +216,7 @@ def main(audio_file: str):
 
     if mispronunciation:
         # copy audio to a separate folder for annotation
-        copy_file(
+        s3_client.copy_file(
             BUCKET,
             f"{job_name}.{audio_extension}",
             f"dropbox/{folder_name}",
@@ -226,12 +226,12 @@ def main(audio_file: str):
         # log results to AirTable
         mispronunciation.job_name = job_name
         mispronunciation.language = folder_name
-        mispronunciation.audio_url = create_presigned_url(
+        mispronunciation.audio_url = s3_client.create_presigned_url(
             BUCKET,
             f"mispronunciations/raw/{folder_name}/{job_name}.{audio_extension}",
             SIGNED_URL_TIMEOUT,
         )
 
     # export JSON to respective folders in S3
-    put_object(task, BUCKET, save_path)
+    s3_client.put_object(task, BUCKET, save_path)
     print(f"File {save_path} successfully created and saved.")
