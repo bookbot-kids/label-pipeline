@@ -158,7 +158,7 @@ class TranscribeClient:
             LanguageCode=language_code,
         )
 
-        # might be risky, but this relies on Lambda's 3 mins timeout
+        # might be risky, but this relies on Lambda's timeout
         while True:
             job = self.client.get_transcription_job(TranscriptionJobName=job_name)
             job_status = job["TranscriptionJob"]["TranscriptionJobStatus"]
@@ -171,4 +171,4 @@ class TranscribeClient:
                 # otherwise, if the transcription is still in progress, keep it running
                 print(f"Waiting for {job_name}. Current status is {job_status}.")
                 # give a 10 second timeout
-                time.sleep(20)
+                time.sleep(10)

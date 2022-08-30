@@ -5,6 +5,11 @@ from moto import mock_transcribe, mock_s3
 
 
 @pytest.fixture
+def intialize_credentials():
+    os.environ["API_KEY"] = "testing"
+
+
+@pytest.fixture
 def aws_credentials():
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"

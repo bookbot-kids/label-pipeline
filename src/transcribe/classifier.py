@@ -61,10 +61,10 @@ class SpeakerClassifier:
                 return "None"
 
 
-if __name__ == "__main__":
-    test_audio = "386cc312-5a30-41a6-a21b-c2184c225260_1636982327979"
-    prediction = SpeakerClassifier(
-        f"s3://bookbot-speech/archive/id-id/{test_audio}.aac"
-    ).predict()
+# if __name__ == "__main__":
+#     test_audio = "386cc312-5a30-41a6-a21b-c2184c225260_1636982327979"
+#     prediction = SpeakerClassifier(
+#         f"s3://bookbot-speech/archive/id-id/{test_audio}.aac"
+#     ).predict()
 
-    print(prediction)
+#     print(prediction)

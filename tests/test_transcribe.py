@@ -1,11 +1,11 @@
 from src.transcribe.homophones import HOMOPHONES, match_sequence
+from src.transcribe.aligner import overlapping_segments, init_label_studio_annotation
+from src.transcribe.srt2txt import srt2txt
+from src.transcribe.classifier import SpeakerClassifier
 from src.transcribe.mispronunciation import (
     detect_mispronunciation,
     MispronunciationType,
 )
-from src.transcribe.aligner import overlapping_segments, init_label_studio_annotation
-from src.transcribe.srt2txt import srt2txt
-from src.transcribe.classifier import SpeakerClassifier
 
 
 def test_aligner():
@@ -315,5 +315,7 @@ a subtitle.
 
     assert srt2txt("[Music]") == ""
 
-def test_classifier():
+
+def test_classifier(intialize_credentials):
     sc = SpeakerClassifier("s3://test-audio.wav")
+    assert sc.predict() is None
