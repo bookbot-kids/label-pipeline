@@ -1,6 +1,7 @@
 import pytest
 from src.transcribe.s3_utils import S3Client
 from src.transcribe.transcribe import TranscribeStatus, TranscribeClient
+from src.transcribe.lambda_function import get_language_code, get_ground_truth
 
 
 @pytest.fixture
@@ -88,3 +89,8 @@ def test_s3_utils(s3_client, s3_test):
     assert my_client.create_presigned_url("my-test-bucket", "test_file").startswith(
         "https://my-test-bucket.s3.amazonaws.com/test_file"
     )
+
+
+def test_lambda_function(s3_client, s3_test, transcribe_client, transcribe_test):
+    assert get_language_code("s3://bucket/folder/en-au/filename.aac") == "en-AU"
+    assert get_ground_truth("folder/filename.txt") == (None, None)
