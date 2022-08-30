@@ -1,7 +1,7 @@
 import pytest
 from src.transcribe.s3_utils import S3Client
 from src.transcribe.transcribe import TranscribeStatus, TranscribeClient
-from src.transcribe.lambda_function import get_language_code, get_ground_truth
+from src.transcribe.mispronunciation import Mispronunciation, MispronunciationType
 
 
 @pytest.fixture
@@ -91,6 +91,81 @@ def test_s3_utils(s3_client, s3_test):
     )
 
 
-def test_lambda_function(s3_client, s3_test, transcribe_client, transcribe_test):
+def test_lambda_function(
+    s3_client, s3_test, transcribe_client, transcribe_test, intialize_credentials
+):
+    from src.transcribe.lambda_function import (
+        get_language_code,
+        get_ground_truth,
+        classify_mispronunciation,
+        lambda_handler,
+    )
+
+    results = {
+        "items": [
+            {
+                "start_time": "6.69",
+                "end_time": "6.88",
+                "alternatives": [{"confidence": "1.0", "content": "Saya"}],
+                "type": "pronunciation",
+            },
+            {
+                "start_time": "6.88",
+                "end_time": "7.17",
+                "alternatives": [{"confidence": "0.9461", "content": "enggak"}],
+                "type": "pronunciation",
+            },
+            {
+                "start_time": "7.17",
+                "end_time": "7.27",
+                "alternatives": [{"confidence": "0.9461", "content": "tahu"}],
+                "type": "pronunciation",
+            },
+        ],
+    }
+    mispronunciation = Mispronunciation(
+        MispronunciationType.SUBSTITUTION,
+        (["saya", "enggak", "mau"], ["saya", "enggak", "tahu"]),
+        (["mau"], ["tahu"]),
+        [("equal", 0, 2, 0, 2), ("replace", 2, 3, 2, 3)],
+    )
+    output = classify_mispronunciation(results, "saya enggak mau", "id")
+
+    test_event = {
+        "Records": [
+            {
+                "eventVersion": "2.0",
+                "eventSource": "aws:s3",
+                "awsRegion": "us-east-1",
+                "eventTime": "1970-01-01T00:00:00.000Z",
+                "eventName": "ObjectCreated:Put",
+                "userIdentity": {"principalId": "EXAMPLE"},
+                "requestParameters": {"sourceIPAddress": "127.0.0.1"},
+                "responseElements": {
+                    "x-amz-request-id": "EXAMPLE123456789",
+                    "x-amz-id-2": "EXAMPLE123/abcdef/mnopqrstuvwxyzABCDEFGH",
+                },
+                "s3": {
+                    "s3SchemaVersion": "1.0",
+                    "configurationId": "testConfigRule",
+                    "bucket": {
+                        "name": "my-test-bucket",
+                        "ownerIdentity": {"principalId": "EXAMPLE"},
+                        "arn": "arn:aws:s3:::my-test-bucket",
+                    },
+                    "object": {
+                        "key": "folder/id-id/MyJob.wav",
+                        "size": 1024,
+                        "eTag": "0123456789abcdef0123456789abcdef",
+                        "sequencer": "0A1B2C3D4E5F678901",
+                    },
+                },
+            }
+        ]
+    }
+
     assert get_language_code("s3://bucket/folder/en-au/filename.aac") == "en-AU"
-    assert get_ground_truth("folder/filename.txt") == (None, None)
+    assert get_language_code("s3://bucket/folder/id-US/filename.aac") == "id-ID"
+    assert get_ground_truth("transcript") == (None, None)
+    assert vars(output) == vars(mispronunciation)
+    assert lambda_handler(test_event, None) is None
