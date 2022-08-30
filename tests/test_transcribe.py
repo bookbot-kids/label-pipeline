@@ -1,4 +1,3 @@
-import pytest
 from src.transcribe.homophones import HOMOPHONES, match_sequence
 from src.transcribe.mispronunciation import (
     detect_mispronunciation,
@@ -6,24 +5,6 @@ from src.transcribe.mispronunciation import (
 )
 from src.transcribe.aligner import overlapping_segments, init_label_studio_annotation
 from src.transcribe.srt2txt import srt2txt
-from src.transcribe.s3_utils import S3Client
-
-# from src.transcribe.transcribe import (
-#     TranscribeStatus,
-#     get_job,
-#     create_task,
-# )
-
-
-@pytest.fixture
-def bucket_name():
-    return "my-test-bucket"
-
-
-@pytest.fixture
-def s3_test(s3_client, bucket_name):
-    s3_client.create_bucket(Bucket=bucket_name)
-    yield
 
 
 def test_aligner():
@@ -332,38 +313,3 @@ a subtitle.
     )
 
     assert srt2txt("[Music]") == ""
-
-
-# def test_transcribe(transcribe_client):
-#     assert get_job(transcribe_client, "JOB_NAME") is None
-#     assert create_task("s3://FILE_URI", {}) == (
-#         TranscribeStatus.FAILED,
-#         None,
-#         {
-#             "data": {"audio": "s3://FILE_URI"},
-#             "predictions": [
-#                 {
-#                     "model_version": "amazon_transcribe",
-#                     "result": [
-#                         {
-#                             "from_name": "transcription",
-#                             "to_name": "audio",
-#                             "type": "textarea",
-#                             "value": {"text": [""]},
-#                         },
-#                     ],
-#                 }
-#             ],
-#         },
-#     )
-
-
-def test_s3_utils(s3_client, s3_test):
-    my_client = S3Client()
-    my_client.put_object('{"data": "hello"}', "my-test-bucket", "source/test_file")
-    my_client.copy_file("my-test-bucket", "test_file", "source", "dest")
-    my_client.move_file("my-test-bucket", "test_file", "source", "dest")
-    assert my_client.get_object("my-test-bucket", "dest/test_file") is not None
-    assert my_client.create_presigned_url("my-test-bucket", "test_file").startswith(
-        "https://my-test-bucket.s3.amazonaws.com/test_file"
-    )

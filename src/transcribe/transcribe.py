@@ -19,66 +19,89 @@ import time
 import requests
 from botocore.exceptions import ClientError
 
-# from src.config import REGION
-
-transcribe_client = boto3.client("transcribe", region_name="ap-southeast-1")
-
 
 class TranscribeStatus(Enum):
     SUCCESS = auto()
     FAILED = auto()
 
 
-def get_job(client: boto3.session.Session.client, job_name: str) -> Dict[str, Any]:
-    """Check if current job already exists
+class TranscribeClient:
+    def __init__(self, region_name="us-east-1"):
+        self.client = boto3.client("transcribe", region_name=region_name)
 
-    Args:
-        client (boto3.session.Session.client): AWS Transcribe client from boto3.
-        job_name (str): Job name in AWS Transcribe.
+    def get_job(
+        self, client: boto3.session.Session.client, job_name: str
+    ) -> Dict[str, Any]:
+        """Check if current job already exists
 
-    Returns:
-        Dict[str, Any]:
-            JSON-formatted response from AWS Transcribe, `None` on failure.
-    """
-    try:
-        response = client.get_transcription_job(TranscriptionJobName=job_name)
-        return response
-    except ClientError:
-        return None
+        Args:
+            client (boto3.session.Session.client): AWS Transcribe client from boto3.
+            job_name (str): Job name in AWS Transcribe.
 
+        Returns:
+            Dict[str, Any]:
+                JSON-formatted response from AWS Transcribe, `None` on failure.
+        """
+        try:
+            response = client.get_transcription_job(TranscriptionJobName=job_name)
+            return response
+        except ClientError:
+            return None
 
-def create_task(
-    file_uri: str, job: Dict[str, Any]
-) -> Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
-    """Creates a JSON-formatted task for Label Studio from AWS Transcribe output.
+    def create_task(
+        self, file_uri: str, job: Dict[str, Any]
+    ) -> Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
+        """Creates a JSON-formatted task for Label Studio from AWS Transcribe output.
 
-    Args:
-        file_uri (str): URI to audio file in S3 to be Transcribed.
-        job (Dict[str, Any]): JSON-formatted response from AWS Transcribe.
+        Args:
+            file_uri (str): URI to audio file in S3 to be Transcribed.
+            job (Dict[str, Any]): JSON-formatted response from AWS Transcribe.
 
-    Returns:
-        Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
-            Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe
-            results and (3) JSON-formatted task for Label Studio
-    """
-    try:
-        download_uri = job["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
-        results = requests.get(download_uri).json()["results"]
-        transcriptions = [r["transcript"] for r in results["transcripts"]]
-        # confidence score for the entire phrase is
-        # a mean of confidence for individual words
-        confidence = sum(
-            float(item["alternatives"][0]["confidence"])
-            for item in results["items"]
-            if item["type"] == "pronunciation"
-        ) / sum(1.0 for item in results["items"] if item["type"] == "pronunciation")
-    except ZeroDivisionError:
-        confidence = 0.0
-    except Exception as exc:
-        print(f"Error: {exc}")
+        Returns:
+            Tuple[TranscribeStatus, Dict[str, Any], Dict[str, Any]]:
+                Tuple consisting of (1) status of AWS Transcribe job, (2) AWS Transcribe
+                results and (3) JSON-formatted task for Label Studio
+        """
+        try:
+            download_uri = job["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
+            results = requests.get(download_uri).json()["results"]
+            transcriptions = [r["transcript"] for r in results["transcripts"]]
+            # confidence score for the entire phrase is
+            # a mean of confidence for individual words
+            confidence = sum(
+                float(item["alternatives"][0]["confidence"])
+                for item in results["items"]
+                if item["type"] == "pronunciation"
+            ) / sum(1.0 for item in results["items"] if item["type"] == "pronunciation")
+        except ZeroDivisionError:
+            confidence = 0.0
+        except Exception as exc:
+            print(f"Error: {exc}")
+            return (
+                TranscribeStatus.FAILED,
+                None,
+                {
+                    "data": {"audio": file_uri},
+                    "predictions": [
+                        {
+                            "model_version": "amazon_transcribe",
+                            "result": [
+                                {
+                                    "from_name": "transcription",
+                                    "to_name": "audio",
+                                    "type": "textarea",
+                                    "value": {"text": [""]},
+                                },
+                            ],
+                        }
+                    ],
+                },
+            )
+
+        # if no exceptions occur or if confidence is set to 0.0
         return (
-            TranscribeStatus.FAILED,
-            None,
+            TranscribeStatus.SUCCESS,
+            results,
             {
                 "data": {"audio": file_uri},
                 "predictions": [
@@ -89,83 +112,63 @@ def create_task(
                                 "from_name": "transcription",
                                 "to_name": "audio",
                                 "type": "textarea",
-                                "value": {"text": [""]},
+                                "value": {"text": transcriptions},
                             },
                         ],
+                        "score": confidence,
                     }
                 ],
             },
         )
 
-    # if no exceptions occur or if confidence is set to 0.0 after division-by-zero error
-    return (
-        TranscribeStatus.SUCCESS,
-        results,
-        {
-            "data": {"audio": file_uri},
-            "predictions": [
-                {
-                    "model_version": "amazon_transcribe",
-                    "result": [
-                        {
-                            "from_name": "transcription",
-                            "to_name": "audio",
-                            "type": "textarea",
-                            "value": {"text": transcriptions},
-                        },
-                    ],
-                    "score": confidence,
-                }
-            ],
-        },
-    )
+    def transcribe_file(
+        self,
+        job_name: str,
+        file_uri: str,
+        media_format: str = "mp4",
+        language_code: str = "en-US",
+    ) -> Tuple[TranscribeStatus, Dict[str, Any]]:
+        """Transcribes audio file with AWS Transcribe.
 
+        Args:
+            job_name (str): AWS Transcribe job name.
+            file_uri (str): URI to audio file in S3 to be Transcribed.
+            media_format (str, optional): Format of audio file. Defaults to "mp4".
+            language_code (str, optional): AWS Transcribe language code of audio.
+                                        Defaults to "en-US".
 
-def transcribe_file(
-    job_name: str,
-    file_uri: str,
-    media_format: str = "mp4",
-    language_code: str = "en-US",
-) -> Tuple[TranscribeStatus, Dict[str, Any]]:
-    """Transcribes audio file with AWS Transcribe.
+        Returns:
+            Tuple[TranscribeStatus, Dict[str, Any]]:
+                Tuple consisting of:
+                    (1) status of AWS Transcribe job and
+                    (2) JSON-formatted
+                task for Label Studio
+        """
+        job = self.get_job(self.client, job_name)
+        if job:
+            print(f"Transcription job {job_name} already exists.")
+            return self.create_task(file_uri, job)
 
-    Args:
-        job_name (str): AWS Transcribe job name.
-        file_uri (str): URI to audio file in S3 to be Transcribed.
-        media_format (str, optional): Format of audio file. Defaults to "mp4".
-        language_code (str, optional): AWS Transcribe language code of audio.
-                                       Defaults to "en-US".
+        # begin transcription job
+        print(f"Start transcription job {job_name}")
+        self.client.start_transcription_job(
+            TranscriptionJobName=job_name,
+            Media={"MediaFileUri": file_uri},
+            MediaFormat=media_format,
+            LanguageCode=language_code,
+        )
 
-    Returns:
-        Tuple[TranscribeStatus, Dict[str, Any]]:
-            Tuple consisting of (1) status of AWS Transcribe job and (2) JSON-formatted
-            task for Label Studio
-    """
-    job = get_job(transcribe_client, job_name)
-    if job:
-        print(f"Transcription job {job_name} already exists.")
-        return create_task(file_uri, job)
-
-    # begin transcription job
-    print(f"Start transcription job {job_name}")
-    transcribe_client.start_transcription_job(
-        TranscriptionJobName=job_name,
-        Media={"MediaFileUri": file_uri},
-        MediaFormat=media_format,
-        LanguageCode=language_code,
-    )
-
-    # might be risky, but this relies on Lambda's 3 mins timeout
-    while True:
-        job = transcribe_client.get_transcription_job(TranscriptionJobName=job_name)
-        job_status = job["TranscriptionJob"]["TranscriptionJobStatus"]
-        if job_status in ["COMPLETED", "FAILED"]:
-            print(f"Job {job_name} is {job_status}.")
-            # if transcription job completes or fails, create Label Studio
-            # JSON-formatted task accordingly
-            return create_task(file_uri, job)
-        elif job_status == "IN_PROGRESS":
-            # otherwise, if the transcription is still in progress, keep it running
-            print(f"Waiting for {job_name}. Current status is {job_status}.")
-            # give a 10 second timeout
-            time.sleep(20)
+        # might be risky, but this relies on Lambda's 3 mins timeout
+        while True:
+            job = self.client.get_transcription_job(TranscriptionJobName=job_name)
+            job_status = job["TranscriptionJob"]["TranscriptionJobStatus"]
+            if job_status in ["COMPLETED", "FAILED"]:
+                print(f"Job {job_name} is {job_status}.")
+                # if transcription job completes or fails, create Label Studio
+                # JSON-formatted task accordingly
+                return self.create_task(file_uri, job)
+            elif job_status == "IN_PROGRESS":
+                # otherwise, if the transcription is still in progress, keep it running
+                print(f"Waiting for {job_name}. Current status is {job_status}.")
+                # give a 10 second timeout
+                time.sleep(20)
