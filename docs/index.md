@@ -29,6 +29,7 @@ This repository hosts the necessary AWS Lambda scripts to facilitate an automate
 | [Audio Splitting](https://github.com/bookbot-kids/label-pipeline/tree/main/src/audio_splitter)                                  | Based on audio alignment transcriptions, segment audios and split into different files before saving back to S3.                                  |
 | [Audio Adult/Child Classifier](https://github.com/bookbot-kids/label-pipeline/tree/main/src/audio_classifier)                   | Classify incoming audios stored in S3 as either adult, or child audios.                                                                           |
 | [Integration with AirTable Dashboards](https://github.com/bookbot-kids/label-pipeline/tree/main/src/airtable_apply_annotations) | Export AirTable audio annotations (transcript and labels) to S3 by moving files according to their labels.                                        |
+| [Audio Recording Logger](https://github.com/bookbot-kids/label-pipeline/tree/main/src/audio_recording_logger)                   | Logs daily audio recording data from S3 Inventory to AirTable.                                                                                    |
 
 For more details of each component, please check each subdirectory's README file.
 
