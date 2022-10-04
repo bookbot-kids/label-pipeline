@@ -18,6 +18,9 @@
     <a href="https://github.com/bookbot-kids/label-pipeline/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg">
     </a>
+    <a href="https://github.com/bookbot-kids/label-pipeline/blob/main/CONTRIBUTING.md">
+        <img alt="contributing guidelines" src="https://img.shields.io/badge/contributing-guidelines-brightgreen">
+    </a>
 </p>
 
 

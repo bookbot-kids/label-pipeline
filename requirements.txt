@@ -3,3 +3,5 @@ botocore==1.21.37
 ffmpeg-python==0.2.0
 pysrt==1.1.2
 requests==2.26.0
+pandas
+numpy
